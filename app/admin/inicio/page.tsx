@@ -82,6 +82,8 @@ export default function AdminInicioPage() {
       setProcesando(true);
       await aceptarPago(pagoSeleccionado._id);
       setPagoSeleccionado(null);
+      // Esperar un poco para asegurar que la caché se limpie en el backend
+      await new Promise(resolve => setTimeout(resolve, 500));
       await cargarDatos();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al aceptar pago");
@@ -96,6 +98,8 @@ export default function AdminInicioPage() {
       setProcesando(true);
       await rechazarPago(pagoSeleccionado._id);
       setPagoSeleccionado(null);
+      // Esperar un poco para asegurar que la caché se limpie en el backend
+      await new Promise(resolve => setTimeout(resolve, 500));
       await cargarDatos();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al rechazar pago");
@@ -107,6 +111,16 @@ export default function AdminInicioPage() {
   function formatearMeses(meses: number[]): string {
     return meses.map((m) => MESES[m - 1]).join(", ");
   }
+
+  // Formatear fecha correctamente evitando problemas de zona horaria
+  const formatearFecha = (fecha: string | Date): string => {
+    if (!fecha) return "N/A";
+    const date = typeof fecha === 'string' ? new Date(fecha) : fecha;
+    const año = date.getUTCFullYear();
+    const mes = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const día = String(date.getUTCDate()).padStart(2, '0');
+    return `${día}/${mes}/${año}`;
+  };
 
   function formatearMonto(monto: number): string {
     return new Intl.NumberFormat("es-VE", {
@@ -324,9 +338,7 @@ export default function AdminInicioPage() {
                     Fecha de pago
                   </label>
                   <p className="mt-1 text-lg text-slate-800">
-                    {new Date(
-                      pagoSeleccionado.fechaPago
-                    ).toLocaleDateString("es-VE")}
+                    {formatearFecha(pagoSeleccionado.fechaPago)}
                   </p>
                 </div>
                 <div className="rounded-lg bg-slate-50 p-4">

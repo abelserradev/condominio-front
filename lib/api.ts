@@ -2,8 +2,15 @@ const getBaseUrl = () =>
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
 function getAuthToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("admin_token");
+  if (typeof window === "undefined") {
+    return null;
+  }
+  try {
+    return localStorage.getItem("admin_token");
+  } catch (err) {
+    console.error('[API] getAuthToken - Error al acceder a localStorage:', err);
+    return null;
+  }
 }
 
 function getAuthHeaders(): HeadersInit {
@@ -42,8 +49,31 @@ export type Payment = {
   montoBs?: number;
   tasaBcv?: number;
   comprobanteFileId?: string;
+  recibosPagados?: string[];
   createdAt?: string;
   estado?: string;
+};
+
+export type Abono = {
+  paymentId: string;
+  monto: number;
+  fecha: string;
+  numeroComprobante?: string;
+};
+
+export type Recibo = {
+  _id: string;
+  piso: number;
+  apartamento: number;
+  meses: number[];
+  montoUsd: number;
+  tipoDeuda: string;
+  fechaReportada: string;
+  facturaFileId?: string;
+  createdAt?: string;
+  estado?: string;
+  montoPagado?: number;
+  abonos?: Abono[];
 };
 
 export async function fetchPayments(
@@ -55,15 +85,17 @@ export async function fetchPayments(
   if (piso != null) params.append("piso", String(piso));
   if (apartamento != null) params.append("apartamento", String(apartamento));
   if (estado != null) params.append("estado", estado);
-  const res = await fetch(`${getBaseUrl()}/payments?${params}`);
+  // Agregar timestamp para evitar caché del navegador
+  params.append("_t", String(Date.now()));
+  const res = await fetch(`${getBaseUrl()}/payments?${params}`, {
+    cache: 'no-store',
+  });
   if (!res.ok) throw new Error("Error al cargar pagos");
   return res.json();
 }
 
 export async function fetchPayment(id: string): Promise<Payment> {
-  const res = await fetch(`${getBaseUrl()}/payments/${id}`, {
-    headers: getAuthHeaders(),
-  });
+  const res = await fetch(`${getBaseUrl()}/payments/${id}`);
   if (!res.ok) throw new Error("Error al cargar pago");
   return res.json();
 }
@@ -132,5 +164,55 @@ export async function fetchApartments(piso?: number): Promise<Apartment[]> {
   const params = piso != null ? `?piso=${piso}` : "";
   const res = await fetch(`${getBaseUrl()}/apartments${params}`);
   if (!res.ok) throw new Error("Error al cargar apartamentos");
+  return res.json();
+}
+
+export async function fetchRecibos(
+  piso?: number,
+  apartamento?: number,
+  estado?: string
+): Promise<Recibo[]> {
+  const token = getAuthToken();
+  // Si es admin autenticado, siempre usar endpoint privado para ver todos los recibos
+  if (token) {
+    const params = new URLSearchParams();
+    if (piso != null) params.append("piso", String(piso));
+    if (apartamento != null) params.append("apartamento", String(apartamento));
+    if (estado != null) params.append("estado", estado);
+    // Agregar timestamp para evitar caché del navegador
+    params.append("_t", String(Date.now()));
+    const res = await fetch(`${getBaseUrl()}/administracion?${params}`, {
+      headers: getAuthHeaders(),
+      cache: 'no-store',
+    });
+    if (!res.ok) {
+      throw new Error("Error al cargar recibos");
+    }
+    return res.json();
+  }
+  // Para propietarios, usar endpoint público que muestra recibos con saldo pendiente
+  const publicParams = new URLSearchParams();
+  if (piso != null) publicParams.append("piso", String(piso));
+  if (apartamento != null) publicParams.append("apartamento", String(apartamento));
+  const res = await fetch(`${getBaseUrl()}/administracion/public/pendientes?${publicParams}`, {
+    cache: 'no-store',
+  });
+  if (!res.ok) {
+    throw new Error("Error al cargar recibos");
+  }
+  return res.json();
+}
+
+export async function postRecibo(formData: FormData): Promise<Recibo> {
+  const token = getAuthToken();
+  const res = await fetch(`${getBaseUrl()}/administracion`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { message?: string }).message ?? "Error al cargar recibo");
+  }
   return res.json();
 }

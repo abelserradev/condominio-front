@@ -19,22 +19,35 @@ export default function AdminLoginPage() {
     setError(null);
     setLoading(true);
     const url = `${getBaseUrl()}/auth/login`;
-    console.log('[Login] POST', url, { usuario: usuario.trim(), tieneContraseña: !!contraseña });
+    const bodyData = { usuario: usuario.trim(), contraseña };
+    console.log('[Login] POST', url, { usuario: bodyData.usuario, tieneContraseña: !!bodyData.contraseña });
     try {
       const res = await fetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ usuario: usuario.trim(), contraseña }),
+        headers: { 
+          "Content-Type": "application/json; charset=utf-8",
+          "Accept": "application/json",
+        },
+        body: JSON.stringify(bodyData),
+        credentials: 'include',
       });
-      console.log('[Login] response', res.status, res.statusText, res.ok);
+      console.log('[Login] response', res.status, res.statusText, res.ok, res.headers.get('content-type'));
       if (!res.ok) {
-        const text = await res.text();
-        console.log('[Login] error body', text);
+        let errorText = '';
+        try {
+          errorText = await res.text();
+          console.log('[Login] error body', errorText);
+        } catch (e) {
+          console.error('[Login] Error al leer respuesta:', e);
+          errorText = `Error HTTP ${res.status}: ${res.statusText}`;
+        }
         let msg = "Error al iniciar sesión";
         try {
-          const j = JSON.parse(text) as { message?: string };
+          const j = JSON.parse(errorText) as { message?: string };
           if (j?.message) msg = j.message;
-        } catch (_) {}
+        } catch (_) {
+          if (errorText) msg = errorText;
+        }
         throw new Error(msg);
       }
       const data = (await res.json()) as { access_token: string };
@@ -46,7 +59,11 @@ export default function AdminLoginPage() {
       router.replace("/admin/inicio");
     } catch (err) {
       console.error('[Login] catch', err);
-      setError(err instanceof Error ? err.message : "Error al iniciar sesión");
+      if (err instanceof TypeError && err.message.includes('fetch')) {
+        setError("Error de conexión. Verifica que el backend esté corriendo en http://localhost:3001");
+      } else {
+        setError(err instanceof Error ? err.message : "Error al iniciar sesión");
+      }
     } finally {
       setLoading(false);
     }
