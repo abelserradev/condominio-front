@@ -1,16 +1,18 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   fetchPayments,
   fetchPayment,
+  fetchApartments,
+  fetchRecibos,
   aceptarPago,
   rechazarPago,
   getComprobanteUrl,
-  fetchApartments,
   type Payment,
-  type Apartment,
+  type Recibo,
 } from "@/lib/api";
 
 const MESES = [
@@ -28,12 +30,24 @@ const MESES = [
   "Diciembre",
 ];
 
+type Metricas = {
+  pagosRegistrados: number;
+  pagosPendientesFacturas: number;
+  apartamentosSinDeudasActivas: number;
+  apartamentosSoloDeudaCuotasEspeciales: number;
+};
+
 export default function AdminInicioPage() {
   const router = useRouter();
   const [pagosPendientes, setPagosPendientes] = useState<Payment[]>([]);
+  const [pagosAceptados, setPagosAceptados] = useState<Payment[]>([]);
   const [pagoSeleccionado, setPagoSeleccionado] = useState<Payment | null>(null);
-  const [apartamentos, setApartamentos] = useState<Apartment[]>([]);
-  const [menuAbierto, setMenuAbierto] = useState(false);
+  const [metricas, setMetricas] = useState<Metricas>({
+    pagosRegistrados: 0,
+    pagosPendientesFacturas: 0,
+    apartamentosSinDeudasActivas: 0,
+    apartamentosSoloDeudaCuotasEspeciales: 0,
+  });
   const [cargando, setCargando] = useState(true);
   const [procesando, setProcesando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,19 +61,64 @@ export default function AdminInicioPage() {
     cargarDatos();
   }, [router]);
 
+  function esDeudaCondominio(tipoDeuda: string): boolean {
+    const t = tipoDeuda.toLowerCase();
+    return t.includes("condominio") || t === "pendiente";
+  }
+
+  function esDeudaCuotasEspeciales(tipoDeuda: string): boolean {
+    const t = tipoDeuda.toLowerCase();
+    return t.includes("cuota") || t.includes("especial") || t.includes("acumulada") || t.includes("reparacion");
+  }
+
+  function calcularMetricas(
+    todosPagos: Payment[],
+    recibos: Recibo[],
+    totalApartamentos: number,
+  ): Metricas {
+    const pagosRegistrados = todosPagos.length;
+    const pagosPendientesFacturas = todosPagos.filter((p) => p.estado === "pendiente").length;
+    const recibosConSaldo = recibos.filter((r) => (r.montoPagado ?? 0) < r.montoUsd);
+    const apartamentosConDeuda = new Set(
+      recibosConSaldo.map((r) => `${r.piso}-${r.apartamento}`),
+    );
+    const apartamentosSinDeudasActivas = totalApartamentos - apartamentosConDeuda.size;
+    const aptsConDeudaCondominio = new Set<string>();
+    const aptsConDeudaCuotasEspeciales = new Set<string>();
+    for (const r of recibosConSaldo) {
+      const key = `${r.piso}-${r.apartamento}`;
+      if (esDeudaCondominio(r.tipoDeuda)) aptsConDeudaCondominio.add(key);
+      if (esDeudaCuotasEspeciales(r.tipoDeuda)) aptsConDeudaCuotasEspeciales.add(key);
+    }
+    const apartamentosSoloDeudaCuotasEspeciales = [...aptsConDeudaCuotasEspeciales].filter(
+      (key) => !aptsConDeudaCondominio.has(key),
+    ).length;
+    return {
+      pagosRegistrados,
+      pagosPendientesFacturas,
+      apartamentosSinDeudasActivas: Math.max(0, apartamentosSinDeudasActivas),
+      apartamentosSoloDeudaCuotasEspeciales,
+    };
+  }
+
   async function cargarDatos() {
     try {
       setCargando(true);
-      const [pagos, apts] = await Promise.all([
+      const [pagosPend, todosPagos, pagosAcept, apartamentos, recibos] = await Promise.all([
         fetchPayments(undefined, undefined, "pendiente"),
+        fetchPayments(),
+        fetchPayments(undefined, undefined, "aceptado"),
         fetchApartments(),
+        fetchRecibos(),
       ]);
-      setPagosPendientes(pagos);
-      const ordenados = apts.sort((a, b) => {
-        if (a.piso !== b.piso) return a.piso - b.piso;
-        return a.numero - b.numero;
+      setPagosPendientes(pagosPend);
+      const aceptadosOrdenados = pagosAcept.sort((a, b) => {
+        const fa = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const fb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return fb - fa;
       });
-      setApartamentos(ordenados);
+      setPagosAceptados(aceptadosOrdenados);
+      setMetricas(calcularMetricas(todosPagos, recibos, apartamentos.length));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al cargar datos");
     } finally {
@@ -138,89 +197,79 @@ export default function AdminInicioPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-slate-50">
-      {/* Burger Menu Button - Solo visible cuando el menú está cerrado */}
-      {!menuAbierto && (
+    <div className="flex-1">
+      {/* Header púrpura con título y botón */}
+      <header className="flex items-center justify-between bg-[#5b21b6] px-6 py-5">
+        <h1 className="text-2xl font-bold text-white">
+          Reportes de Pagos Pendientes
+        </h1>
         <button
-          onClick={() => setMenuAbierto(true)}
-          className="fixed left-4 top-20 z-50 rounded-lg bg-green-600 p-2 text-white shadow-lg transition-all hover:bg-green-700"
-          aria-label="Abrir menú"
+          type="button"
+          className="rounded-xl bg-[#7c3aed] px-5 py-2.5 text-sm font-medium text-white shadow transition-colors hover:bg-[#6d28d9]"
         >
-          <svg
-            className="h-6 w-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 6h16M4 12h16M4 18h16"
-            />
-          </svg>
+          Factura condominio
         </button>
-      )}
+      </header>
 
-      {/* Sidebar */}
-      <aside
-        className={`fixed left-0 top-16 z-30 h-[calc(100vh-4rem)] w-64 transform bg-green-700 text-white transition-transform duration-300 ${
-          menuAbierto ? "translate-x-0" : "-translate-x-full"
-        } shadow-xl flex flex-col`}
-      >
-        {/* Botón de cerrar sticky en la parte superior */}
-        <div className="sticky top-0 z-10 bg-green-700 border-b border-green-600 p-2 flex justify-end">
-          <button
-            onClick={() => setMenuAbierto(false)}
-            className="rounded-lg p-1 text-white transition-colors hover:bg-green-600"
-            aria-label="Cerrar menú"
-          >
-            <svg
-              className="h-6 w-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-        </div>
-
-        {/* Lista de apartamentos con scroll */}
-        <div className="flex-1 overflow-y-auto p-4">
-          <h2 className="mt-12 ml-2 mb-4 text-xl font-bold">Listados de Pisos</h2>
-          <div className="space-y-1">
-            {apartamentos.map((apt) => (
-              <button
-                key={apt._id}
-                onClick={() => {
-                  router.push(`/admin/recibos?piso=${apt.piso}&apartamento=${apt.numero}`);
-                  setMenuAbierto(false);
-                }}
-                className="block w-full rounded px-3 py-2 text-left text-sm transition-colors hover:bg-green-600"
-              >
-                P{apt.piso}-A{apt.numero}
-              </button>
-            ))}
+      <div className="p-6">
+        {/* Tarjetas de métricas */}
+        <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-3 flex items-start justify-between">
+              <span className="text-sm font-medium text-slate-600">
+                Pagos registrados por los propietarios
+              </span>
+              <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#ede9fe]">
+                <svg className="h-5 w-5 text-[#5b21b6]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </span>
+            </div>
+            <p className="text-2xl font-bold text-slate-800">{metricas.pagosRegistrados}</p>
+            <p className="mt-1 text-xs text-slate-500">Total reportados</p>
           </div>
-        </div>
-      </aside>
-
-      {/* Contenido principal - se desplaza cuando el menú está abierto */}
-      <main
-        className={`flex-1 p-6 transition-all duration-300 ${
-          menuAbierto ? "ml-64" : "ml-20"
-        }`}
-      >
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-slate-800">
-            Reportes de Pagos Pendientes
-          </h1>
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-3 flex items-start justify-between">
+              <span className="text-sm font-medium text-slate-600">
+                Pagos pendientes de facturas de condominio
+              </span>
+              <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#dbeafe]">
+                <svg className="h-5 w-5 text-[#1d4ed8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                </svg>
+              </span>
+            </div>
+            <p className="text-2xl font-bold text-slate-800">{metricas.pagosPendientesFacturas}</p>
+            <p className="mt-1 text-xs text-slate-500">Por verificar</p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-3 flex items-start justify-between">
+              <span className="text-sm font-medium text-slate-600">
+                Apartamentos sin deudas activas
+              </span>
+              <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#fce7f3]">
+                <svg className="h-5 w-5 text-[#be185d]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </span>
+            </div>
+            <p className="text-2xl font-bold text-slate-800">{metricas.apartamentosSinDeudasActivas}</p>
+            <p className="mt-1 text-xs text-slate-500">Al día</p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-3 flex items-start justify-between">
+              <span className="text-sm font-medium text-slate-600">
+                Deudas cuotas especiales
+              </span>
+              <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#d1fae5]">
+                <svg className="h-5 w-5 text-[#047857]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+              </span>
+            </div>
+            <p className="text-2xl font-bold text-slate-800">{metricas.apartamentosSoloDeudaCuotasEspeciales}</p>
+            <p className="mt-1 text-xs text-slate-500">Solo cuotas especiales</p>
+          </div>
         </div>
 
         {error && (
@@ -229,6 +278,7 @@ export default function AdminInicioPage() {
           </div>
         )}
 
+        <h2 className="mb-4 text-lg font-semibold text-slate-800">Pagos pendientes de verificar</h2>
         {pagosPendientes.length === 0 ? (
           <div className="py-12 text-center text-slate-500">
             No hay pagos pendientes de verificar
@@ -266,7 +316,70 @@ export default function AdminInicioPage() {
             ))}
           </div>
         )}
-      </main>
+
+        {/* Sección Pagos aceptados */}
+        <div className="mt-10 rounded-xl border border-slate-200 bg-white shadow-sm">
+          <h2 className="border-b border-slate-200 px-6 py-4 text-lg font-semibold text-slate-800">
+            Pagos aceptados
+          </h2>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[500px]">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50 text-left text-sm font-medium text-slate-600">
+                  <th className="px-6 py-3">Tipo de deuda</th>
+                  <th className="px-6 py-3">Piso</th>
+                  <th className="px-6 py-3">Apartamento</th>
+                  <th className="px-6 py-3">Monto</th>
+                  <th className="px-6 py-3">Fecha de pago</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pagosAceptados.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-8 text-center text-slate-500">
+                      No hay pagos aceptados
+                    </td>
+                  </tr>
+                ) : (
+                  pagosAceptados.slice(0, 5).map((pago) => (
+                    <tr
+                      key={pago._id}
+                      className="border-b border-slate-100 transition-colors hover:bg-slate-50"
+                    >
+                      <td className="px-6 py-4">
+                        <span className="text-slate-800">Condominio</span>
+                      </td>
+                      <td className="px-6 py-4 font-medium text-slate-800">{pago.piso}</td>
+                      <td className="px-6 py-4">
+                        <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-800">
+                          {pago.apartamento}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 font-medium text-slate-800">
+                        {formatearMonto(pago.montoUsd)}
+                      </td>
+                      <td className="px-6 py-4 text-slate-600">
+                        {new Date(pago.fechaPago).toLocaleDateString("es-VE", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                        })}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+          <div className="border-t border-slate-200 px-6 py-4 text-center">
+            <Link
+              href="/admin/pagos-aceptados"
+              className="text-sm font-medium text-[#5b21b6] transition-colors hover:text-[#7c3aed] hover:underline"
+            >
+              Ver más pagos aceptados
+            </Link>
+          </div>
+        </div>
 
       {/* Modal mejorado */}
       {pagoSeleccionado && (
@@ -421,6 +534,7 @@ export default function AdminInicioPage() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

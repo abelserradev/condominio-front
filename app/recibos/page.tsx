@@ -108,6 +108,15 @@ export default function RecibosPage() {
   const formatearMeses = (meses: number[]) =>
     meses.map((m) => MESES[m - 1]).join(", ");
 
+  // Mes(es) con año para la card (ej. "Enero 2025" o "Enero, Febrero 2025")
+  const formatearMesesConAño = (meses: number[], fechaReportada: string): string => {
+    if (!meses.length) return "—";
+    const date = new Date(fechaReportada);
+    const año = date.getUTCFullYear();
+    const nombres = meses.map((m) => MESES[m - 1]).join(", ");
+    return `${nombres} ${año}`;
+  };
+
   // Formatear fecha correctamente evitando problemas de zona horaria
   // Las fechas vienen en UTC a mediodía desde el backend
   const formatearFecha = (fecha: string | Date): string => {
@@ -120,17 +129,6 @@ export default function RecibosPage() {
     return `${día}/${mes}/${año}`;
   };
 
-  function obtenerColorEstado(estado?: string): string {
-    switch (estado) {
-      case "aceptado":
-        return "border-green-300 bg-green-50";
-      case "rechazado":
-        return "border-red-300 bg-red-50";
-      default:
-        return "border-yellow-300 bg-yellow-50";
-    }
-  }
-
   function obtenerTextoEstado(estado?: string): string {
     switch (estado) {
       case "aceptado":
@@ -139,17 +137,6 @@ export default function RecibosPage() {
         return "Rechazada";
       default:
         return "Pendiente";
-    }
-  }
-
-  function obtenerColorTextoEstado(estado?: string): string {
-    switch (estado) {
-      case "aceptado":
-        return "text-green-800";
-      case "rechazado":
-        return "text-red-800";
-      default:
-        return "text-yellow-800";
     }
   }
 
@@ -223,117 +210,245 @@ export default function RecibosPage() {
             </p>
           )}
           {!cargando && !error && recibosPendientes.length > 0 && (
-            <div className="mb-8">
-              <h2 className="mb-4 text-lg font-semibold text-slate-800">
-                Recibos pendientes de pago
-              </h2>
-              <ul className="space-y-4">
-                {recibosPendientes.map((recibo) => (
-                  <li
+            <div className="mb-8 space-y-5">
+              {recibosPendientes.map((recibo) => {
+                const estadoRecibo = recibo.estado ?? "pendiente";
+                const montoPagado = recibo.montoPagado ?? 0;
+                const mostrarMontoPagado = montoPagado > 0;
+                return (
+                  <article
                     key={recibo._id}
-                    className="rounded-xl border-2 border-orange-300 bg-orange-50 p-4"
+                    className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
                   >
-                    <div className="mb-2 flex items-center justify-between">
-                      <div>
-                        <p className="font-medium text-slate-800">
-                          {recibo.tipoDeuda}
-                        </p>
-                        <p className="text-sm text-slate-600">
-                          Mes(es): {formatearMeses(recibo.meses)}
-                        </p>
-                      </div>
-                      <span className="rounded-full bg-orange-200 px-3 py-1 text-xs font-medium text-orange-800">
-                        Pendiente
+                    <div className="flex items-start justify-between p-4 pb-0">
+                      <h3 className="text-base font-semibold text-slate-800">
+                        Recibo de condominio
+                      </h3>
+                      <span
+                        className={`rounded-full px-3 py-1 text-xs font-medium ${
+                          estadoRecibo === "aceptado"
+                            ? "bg-green-100 text-green-800"
+                            : estadoRecibo === "rechazado"
+                              ? "bg-red-100 text-red-800"
+                              : "bg-slate-100 text-slate-700"
+                        }`}
+                      >
+                        {estadoRecibo === "aceptado"
+                          ? "Pagado"
+                          : estadoRecibo === "rechazado"
+                            ? "Rechazado"
+                            : "En revisión"}
                       </span>
                     </div>
-                    <div className="mt-2">
-                      <p className="text-sm text-slate-600">
-                        Total: ${recibo.montoUsd.toFixed(2)} USD
-                      </p>
-                      {(() => {
-                        const montoPagado = recibo.montoPagado ?? 0;
-                        const montoPendiente = recibo.montoUsd - montoPagado;
-                        if (montoPagado > 0) {
-                          return (
-                            <div className="mt-1">
-                              <p className="text-xs text-green-700">
-                                Pagado: ${montoPagado.toFixed(2)} USD
-                              </p>
-                              <p className="text-xs text-amber-700">
-                                Pendiente: ${montoPendiente.toFixed(2)} USD
-                              </p>
-                            </div>
-                          );
-                        }
-                        return null;
-                      })()}
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-4 p-4">
+                      <div className="flex items-start gap-3">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-500 text-white">
+                          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                          </svg>
+                        </span>
+                        <div>
+                          <p className="text-xs text-slate-500">Piso</p>
+                          <p className="font-semibold text-slate-800">{recibo.piso}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-purple-500 text-white">
+                          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                          </svg>
+                        </span>
+                        <div>
+                          <p className="text-xs text-slate-500">Apartamento</p>
+                          <p className="font-semibold text-slate-800">{recibo.apartamento}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500 text-white">
+                          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                        </span>
+                        <div>
+                          <p className="text-xs text-slate-500">Mes</p>
+                          <p className="font-semibold text-slate-800">
+                            {formatearMesesConAño(recibo.meses, recibo.fechaReportada)}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500 text-white">
+                          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </span>
+                        <div>
+                          <p className="text-xs text-slate-500">
+                            {mostrarMontoPagado ? "Monto pagado" : "Monto"}
+                          </p>
+                          <p className="font-semibold text-slate-800">
+                            {mostrarMontoPagado
+                              ? `${montoPagado.toFixed(2)} USD`
+                              : `${recibo.montoUsd.toFixed(2)} USD`}
+                            {mostrarMontoPagado && recibo.montoUsd > montoPagado && (
+                              <span className="ml-1 text-sm font-normal text-slate-500">
+                                (pend. {(recibo.montoUsd - montoPagado).toFixed(2)})
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="col-span-2 flex items-start gap-3">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500 text-white">
+                          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                        </span>
+                        <div>
+                          <p className="text-xs text-slate-500">Fecha reportada</p>
+                          <p className="font-semibold text-slate-800">
+                            {formatearFecha(recibo.fechaReportada)}
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                    <p className="mt-1 text-xs text-slate-500">
-                      Fecha reportada: {formatearFecha(recibo.fechaReportada)}
-                    </p>
-                    {recibo.facturaFileId && (
+                    {recibo.facturaFileId ? (
                       <a
                         href={getComprobanteUrl(recibo.facturaFileId)}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="mt-2 inline-block text-sm font-medium text-orange-600 hover:text-orange-700"
+                        className="mt-4 flex w-full items-center justify-center gap-2 rounded-b-2xl bg-slate-900 px-4 py-3 font-medium text-white transition-colors hover:bg-slate-800"
                       >
-                        Ver factura →
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Ver factura
                       </a>
+                    ) : (
+                      <div className="mt-4 rounded-b-2xl border-t border-slate-100 px-4 py-3 text-center text-sm text-slate-500">
+                        Sin factura adjunta
+                      </div>
                     )}
-                  </li>
-                ))}
-              </ul>
+                  </article>
+                );
+              })}
             </div>
           )}
           {!cargando && !error && pagos.length > 0 && (
-            <div>
-              <h2 className="mb-4 text-lg font-semibold text-slate-800">
+            <div className="space-y-5">
+              <h2 className="text-lg font-semibold text-slate-800">
                 Pagos realizados
               </h2>
-              <ul className="space-y-4">
-                {pagos.map((p) => (
-                  <li
-                    key={p._id}
-                    className={`rounded-xl border-2 p-4 ${obtenerColorEstado(
-                      p.estado
-                    )}`}
-                  >
-                    <div className="mb-2 flex items-center justify-between">
-                      <p className="font-medium text-slate-800">
-                        Mes(es): {formatearMeses(p.meses)}
-                      </p>
+              {pagos.map((p) => (
+                <article
+                  key={p._id}
+                  className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-4">
+                    <div className="flex flex-wrap items-center gap-3">
                       <span
-                        className={`rounded-full px-3 py-1 text-xs font-medium ${obtenerColorTextoEstado(
-                          p.estado
-                        )} bg-white`}
+                        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium text-white ${
+                          p.estado === "aceptado"
+                            ? "bg-green-500"
+                            : p.estado === "rechazado"
+                              ? "bg-red-500"
+                              : "bg-slate-400"
+                        }`}
                       >
+                        {p.estado === "aceptado" && (
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
                         {obtenerTextoEstado(p.estado)}
                       </span>
+                      <span className="text-sm text-slate-500">
+                        {p.estado === "aceptado"
+                          ? `Aprobada el ${formatearFecha(p.fechaPago)}`
+                          : p.estado === "rechazado"
+                            ? `Rechazada`
+                            : `Pendiente`}
+                      </span>
                     </div>
-                    <p className="mt-1 text-sm text-slate-600">
-                      Fecha pago:{" "}
-                      {formatearFecha(p.fechaPago)} ·{" "}
-                      {p.montoUsd} USD
-                      {p.montoBs != null &&
-                        ` (${p.montoBs.toLocaleString("es-VE")} Bs)`}
-                    </p>
-                    <p className="mt-1 text-sm text-slate-600">
-                      Comprobante: {p.numeroComprobante} · {p.banco}
-                    </p>
-                    {p.comprobanteFileId && (
+                    {p.comprobanteFileId ? (
                       <a
                         href={getComprobanteUrl(p.comprobanteFileId)}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="mt-2 inline-block text-sm font-medium text-green-600 hover:text-green-700"
+                        className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
                       >
-                        Ver comprobante →
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Ver
                       </a>
+                    ) : (
+                      <span className="text-sm text-slate-400">Sin comprobante</span>
                     )}
-                  </li>
-                ))}
-              </ul>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-4 p-4 sm:grid-cols-3">
+                    <div className="flex items-start gap-3">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                        </svg>
+                      </span>
+                      <div>
+                        <p className="text-xs text-slate-500">Piso</p>
+                        <p className="font-semibold text-slate-800">{p.piso}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div>
+                        <p className="text-xs text-slate-500">Apartamento</p>
+                        <p className="font-semibold text-slate-800">{p.apartamento}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                      </span>
+                      <div>
+                        <p className="text-xs text-slate-500">Mes</p>
+                        <p className="font-semibold text-slate-800 leading-tight">
+                          {formatearMeses(p.meses)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </span>
+                      <div>
+                        <p className="text-xs text-slate-500">Monto</p>
+                        <p className="font-semibold text-slate-800 leading-tight">
+                          $ {p.montoUsd} USD
+                          {p.montoBs != null && (
+                            <>
+                              <br />
+                              <span className="text-slate-700">
+                                {p.montoBs.toLocaleString("es-VE")} Bs
+                              </span>
+                            </>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3 sm:col-span-2">
+                      <div>
+                        <p className="text-xs text-slate-500">Fecha Pago</p>
+                        <p className="font-semibold text-slate-800">
+                          {formatearFecha(p.fechaPago)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </article>
+              ))}
             </div>
           )}
           {!cargando &&
