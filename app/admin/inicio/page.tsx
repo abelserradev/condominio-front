@@ -9,6 +9,7 @@ import {
   rechazarPago,
   getComprobanteUrl,
   fetchApartments,
+  fetchTasaBcv,
   type Payment,
   type Apartment,
 } from "@/lib/api";
@@ -37,6 +38,7 @@ export default function AdminInicioPage() {
   const [cargando, setCargando] = useState(true);
   const [procesando, setProcesando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [tasaBcv, setTasaBcv] = useState<number | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem("admin_token");
@@ -50,9 +52,10 @@ export default function AdminInicioPage() {
   async function cargarDatos() {
     try {
       setCargando(true);
-      const [pagos, apts] = await Promise.all([
+      const [pagos, apts, tasaRes] = await Promise.all([
         fetchPayments(undefined, undefined, "pendiente"),
         fetchApartments(),
+        fetchTasaBcv().catch(() => null),
       ]);
       setPagosPendientes(pagos);
       const ordenados = apts.sort((a, b) => {
@@ -60,6 +63,7 @@ export default function AdminInicioPage() {
         return a.numero - b.numero;
       });
       setApartamentos(ordenados);
+      setTasaBcv(tasaRes ? tasaRes.promedio : null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al cargar datos");
     } finally {
@@ -217,10 +221,16 @@ export default function AdminInicioPage() {
           menuAbierto ? "ml-64" : "ml-20"
         }`}
       >
-        <div className="mb-6">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <h1 className="text-2xl font-bold text-slate-800">
             Reportes de Pagos Pendientes
           </h1>
+          <div className="text-right">
+            <span className="text-sm font-medium text-slate-600">Tasa BCV del día </span>
+            <span className="ml-2 text-lg font-semibold text-green-700">
+              {tasaBcv == null ? "…" : `${tasaBcv.toLocaleString("es-VE")} Bs/USD`}
+            </span>
+          </div>
         </div>
 
         {error && (

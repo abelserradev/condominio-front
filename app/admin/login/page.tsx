@@ -20,7 +20,13 @@ export default function AdminLoginPage() {
     setLoading(true);
     const url = `${getBaseUrl()}/auth/login`;
     const bodyData = { usuario: usuario.trim(), contraseña };
-    console.log('[Login] POST', url, { usuario: bodyData.usuario, tieneContraseña: !!bodyData.contraseña });
+    console.log('[Login] Enviando POST', url, {
+      usuario: bodyData.usuario,
+      usuarioLength: bodyData.usuario.length,
+      tieneContraseña: !!bodyData.contraseña,
+      contraseñaLength: bodyData.contraseña?.length ?? 0,
+      bodyRaw: { ...bodyData, contraseña: bodyData.contraseña ? '[REDACTED]' : '(vacía)' },
+    });
     try {
       const res = await fetch(url, {
         method: "POST",
@@ -31,7 +37,7 @@ export default function AdminLoginPage() {
         body: JSON.stringify(bodyData),
         credentials: 'include',
       });
-      console.log('[Login] response', res.status, res.statusText, res.ok, res.headers.get('content-type'));
+      console.log('[Login] Response', res.status, res.statusText, res.ok, res.headers.get('content-type'));
       if (!res.ok) {
         let errorText = '';
         try {
@@ -51,7 +57,7 @@ export default function AdminLoginPage() {
         throw new Error(msg);
       }
       const data = (await res.json()) as { access_token: string };
-      console.log('[Login] ok, guardando token');
+      console.log('[Login] OK — guardando token', { hasToken: !!data?.access_token, tokenLength: data?.access_token?.length });
       if (typeof window !== "undefined") {
         localStorage.setItem("admin_token", data.access_token);
         window.dispatchEvent(new Event("adminLogin"));
@@ -59,6 +65,7 @@ export default function AdminLoginPage() {
       router.replace("/admin/inicio");
     } catch (err) {
       console.error('[Login] catch', err);
+      console.log('[Login] Mensaje mostrado al usuario:', err instanceof Error ? err.message : String(err));
       if (err instanceof TypeError && err.message.includes('fetch')) {
         setError("Error de conexión. Verifica que el backend esté corriendo en http://localhost:3001");
       } else {

@@ -6,12 +6,14 @@ import { useRouter } from "next/navigation";
 import imageCompression from "browser-image-compression";
 import {
   fetchBanks,
-  fetchTasaBcv,
   postPayment,
   fetchRecibos,
   type Bank,
   type Recibo,
 } from "@/lib/api";
+
+const INPUT_NUMBER_CLASS =
+  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-800 placeholder-slate-400 focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none";
 
 const MESES = [
   "Enero",
@@ -37,13 +39,11 @@ export default function ReportarPagoPage() {
   const [fechaPago, setFechaPago] = useState("");
   const [numeroComprobante, setNumeroComprobante] = useState("");
   const [montoUsd, setMontoUsd] = useState("");
+  const [montoBs, setMontoBs] = useState("");
   const [archivo, setArchivo] = useState<File | null>(null);
   const [bancos, setBancos] = useState<Bank[]>([]);
-  const [tasaBcv, setTasaBcv] = useState<number | null>(null);
   const [cargandoBancos, setCargandoBancos] = useState(true);
-  const [cargandoTasa, setCargandoTasa] = useState(true);
   const [errorBancos, setErrorBancos] = useState<string | null>(null);
-  const [errorTasa, setErrorTasa] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [errorEnvio, setErrorEnvio] = useState<string | null>(null);
   const [recibosPendientes, setRecibosPendientes] = useState<Recibo[]>([]);
@@ -56,13 +56,6 @@ export default function ReportarPagoPage() {
       .then(setBancos)
       .catch(() => setErrorBancos("No se pudieron cargar los bancos"))
       .finally(() => setCargandoBancos(false));
-  }, []);
-
-  useEffect(() => {
-    fetchTasaBcv()
-      .then((d) => setTasaBcv(d.promedio))
-      .catch(() => setErrorTasa("No se pudo obtener la tasa BCV"))
-      .finally(() => setCargandoTasa(false));
   }, []);
 
   useEffect(() => {
@@ -127,11 +120,6 @@ export default function ReportarPagoPage() {
   useEffect(() => {
     calcularTotal();
   }, [recibosSeleccionados, recibosPendientes]);
-
-  const montoBs =
-    tasaBcv != null && montoUsd !== "" && !Number.isNaN(Number(montoUsd))
-      ? Number(montoUsd) * tasaBcv
-      : null;
 
   const toggleMes = (mesIndex: number) => {
     setMesesSeleccionados((prev) =>
@@ -222,8 +210,10 @@ export default function ReportarPagoPage() {
     formData.append("fechaPago", fechaPago);
     formData.append("numeroComprobante", numeroComprobante);
     formData.append("montoUsd", montoUsd);
-    if (montoBs != null) formData.append("montoBs", String(montoBs));
-    if (tasaBcv != null) formData.append("tasaBcv", String(tasaBcv));
+    const montoBsNum = montoBs.trim() !== "" ? parseFloat(montoBs) : undefined;
+    if (montoBsNum != null && !Number.isNaN(montoBsNum) && montoBsNum >= 0) {
+      formData.append("montoBs", String(montoBsNum));
+    }
     formData.append("comprobante", archivo);
     try {
       await postPayment(formData);
@@ -501,26 +491,28 @@ export default function ReportarPagoPage() {
             min="0"
             step="0.01"
             placeholder="0.00"
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-800 placeholder-slate-400 focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
+            className={INPUT_NUMBER_CLASS}
           />
-          {cargandoTasa && (
-            <p className="mt-1 text-xs text-slate-500">
-              Obteniendo tasa BCV…
-            </p>
-          )}
-          {errorTasa && (
-            <p className="mt-1 text-xs text-red-600">{errorTasa}</p>
-          )}
-          {tasaBcv != null && !cargandoTasa && (
-            <p className="mt-1 text-sm text-slate-600">
-              Tasa BCV: {tasaBcv.toLocaleString("es-VE")} Bs/USD
-              {montoBs != null && (
-                <span className="ml-2 font-medium text-green-600">
-                  · Equivalente: {montoBs.toLocaleString("es-VE")} Bs
-                </span>
-              )}
-            </p>
-          )}
+        </div>
+
+        <div>
+          <label
+            htmlFor="montoBs"
+            className="mb-1 block text-sm font-medium text-slate-700"
+          >
+            Monto cancelado en Bs
+          </label>
+          <input
+            type="number"
+            id="montoBs"
+            value={montoBs}
+            onChange={(e) => setMontoBs(e.target.value)}
+            required
+            min="0"
+            step="0.01"
+            placeholder="0.00"
+            className={INPUT_NUMBER_CLASS}
+          />
         </div>
 
         <div>

@@ -609,7 +609,7 @@ export default function AdminRecibosPage() {
                       required
                     >
                       <option value="">Seleccione el tipo de deuda</option>
-                      <option value="Pendiente">Pendiente - Recibo del condominio</option>
+                      <option value="Factura">Recibo del condominio</option>
                       <option value="Deuda acumulada">Pago especial (reparaciones, ascensor, etc.)</option>
                     </select>
                   </div>

@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { IconCard } from "./components/home/icon-card";
 import { ReporteOkBanner } from "./components/home/reporte-ok-banner";
+import { TasaBcvDelDia } from "./components/home/tasa-bcv-del-dia";
 import Image from "next/image";
 
 const iconRecibos = (
@@ -48,13 +49,14 @@ export default function Home() {
         <ReporteOkBanner />
       </Suspense>
       <div className="flex w-full max-w-2xl flex-col items-center gap-8">
-        {/* Primera fila: Recibos | Reportar pago */}
-        <div className="grid w-full max-w-xl grid-cols-1 gap-6 sm:grid-cols-2">
+        {/* Primera fila: Recibos | Tasa BCV del día | Reportar pago */}
+        <div className="grid w-full max-w-3xl grid-cols-1 gap-6 sm:grid-cols-3">
           <IconCard
             href="/recibos"
             label="Recibos de condominio"
             icon={iconRecibos}
           />
+          <TasaBcvDelDia />
           <IconCard
             href="/reportar-pago"
             label="Reportar pago de condominio"
