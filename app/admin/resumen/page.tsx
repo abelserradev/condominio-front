@@ -1,37 +1,319 @@
 "use client";
 
-import Image from "next/image";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import {
+  fetchApartments,
+  fetchRecibos,
+  fetchPayments,
+  type Payment,
+  type Recibo,
+} from "@/lib/api";
+
+function esDeudaCondominio(tipoDeuda: string): boolean {
+  const t = tipoDeuda.toLowerCase();
+  return t.includes("condominio") || t === "pendiente" || t === "factura";
+}
+
+function esDeudaCuotasEspeciales(tipoDeuda: string): boolean {
+  const t = tipoDeuda.toLowerCase();
+  return (
+    t.includes("cuota") ||
+    t.includes("especial") ||
+    t.includes("acumulada") ||
+    t.includes("reparacion")
+  );
+}
+
+type SegmentoCircular = {
+  libres: number;
+  morosos: number;
+  enProgreso: number;
+  total: number;
+};
+
+function calcularSegmentos(
+  recibos: Recibo[],
+  pagosPendientes: Payment[],
+  totalApartamentos: number,
+): SegmentoCircular {
+  const recibosPendientesCondominioOCuotas = recibos.filter(
+    (r) =>
+      (esDeudaCondominio(r.tipoDeuda) || esDeudaCuotasEspeciales(r.tipoDeuda)) &&
+      (r.estado ?? "pendiente") === "pendiente" &&
+      (r.montoPagado ?? 0) < r.montoUsd,
+  );
+  const keysMorosos = new Set<string>();
+  for (const r of recibosPendientesCondominioOCuotas) {
+    const p = Number(r.piso);
+    const a = Number(r.apartamento);
+    if (Number.isFinite(p) && Number.isFinite(a)) keysMorosos.add(`${p}-${a}`);
+  }
+  const morosos = keysMorosos.size;
+  const recibosConSaldo = recibos.filter((r) => (r.montoPagado ?? 0) < r.montoUsd);
+  const keysConDeuda = new Set(
+    recibosConSaldo.map((r) => `${Number(r.piso)}-${Number(r.apartamento)}`),
+  );
+  const libres = Math.max(0, totalApartamentos - keysConDeuda.size);
+  const total = totalApartamentos;
+  const enProgreso = Math.max(0, total - libres - morosos);
+  return {
+    libres,
+    morosos,
+    enProgreso,
+    total,
+  };
+}
+
+type AptPago = {
+  piso: number;
+  apartamento: number;
+  primerPago: string;
+  totalPagado: number;
+  cantidadPagos: number;
+};
+
+function apartamentosQueMasRapidoPagan(pagosAceptados: Payment[]): AptPago[] {
+  const porApt = new Map<string, { fechas: number[]; total: number }>();
+  for (const p of pagosAceptados) {
+    const key = `${Number(p.piso)}-${Number(p.apartamento)}`;
+    const fecha = p.fechaPago ? new Date(p.fechaPago).getTime() : 0;
+    const prev = porApt.get(key);
+    if (!prev) {
+      porApt.set(key, { fechas: [fecha], total: p.montoUsd ?? 0 });
+    } else {
+      prev.fechas.push(fecha);
+      prev.total += p.montoUsd ?? 0;
+    }
+  }
+  const lista: AptPago[] = [];
+  porApt.forEach((v, key) => {
+    const [piso, apartamento] = key.split("-").map(Number);
+    const primerPagoTs = Math.min(...v.fechas);
+    lista.push({
+      piso,
+      apartamento,
+      primerPago: new Date(primerPagoTs).toISOString(),
+      totalPagado: v.total,
+      cantidadPagos: v.fechas.length,
+    });
+  });
+  lista.sort((a, b) => new Date(a.primerPago).getTime() - new Date(b.primerPago).getTime());
+  return lista;
+}
+
+const CX = 100;
+const CY = 100;
+const RADIO_EXTERNO = 72;
+const RADIO_MEDIO = 52;
+const RADIO_INTERNO = 32;
+const GROSOR_ARCO = 14;
+
+function polarToXY(cx: number, cy: number, r: number, deg: number) {
+  const rad = (deg * Math.PI) / 180;
+  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+}
+
+function arcoPorcentaje(
+  cx: number,
+  cy: number,
+  radio: number,
+  porcentaje: number,
+  color: string,
+) {
+  if (porcentaje <= 0) return null;
+  const grados = Math.min(100, porcentaje) * 3.6;
+  const startDeg = 90;
+  const endDeg = startDeg + grados;
+  const large = grados > 180 ? 1 : 0;
+  const p1 = polarToXY(cx, cy, radio, startDeg);
+  const p2 = polarToXY(cx, cy, radio, endDeg);
+  const d = `M ${p1.x} ${p1.y} A ${radio} ${radio} 0 ${large} 1 ${p2.x} ${p2.y}`;
+  return (
+    <path
+      key={color}
+      d={d}
+      fill="none"
+      stroke={color}
+      strokeWidth={GROSOR_ARCO}
+      strokeLinecap="round"
+    />
+  );
+}
+
+function GraficoCircularResumen({ seg }: { seg: SegmentoCircular }) {
+  const { libres, morosos, enProgreso, total } = seg;
+  if (total === 0) {
+    return (
+      <div className="flex h-64 items-center justify-center text-slate-500">
+        Sin datos
+      </div>
+    );
+  }
+  const pLibres = total > 0 ? Math.round((libres / total) * 100) : 0;
+  const pMorosos = total > 0 ? Math.round((morosos / total) * 100) : 0;
+  const pEnProgreso = total > 0 ? Math.round((enProgreso / total) * 100) : 0;
+
+  return (
+    <svg viewBox="0 0 200 200" className="mx-auto h-64 w-64">
+      {arcoPorcentaje(CX, CY, RADIO_EXTERNO, pLibres, "#22c55e")}
+      {arcoPorcentaje(CX, CY, RADIO_MEDIO, pEnProgreso, "#f97316")}
+      {arcoPorcentaje(CX, CY, RADIO_INTERNO, pMorosos, "#ef4444")}
+    </svg>
+  );
+}
 
 export default function AdminResumenPage() {
   const router = useRouter();
+  const [cargando, setCargando] = useState(true);
+  const [segmentos, setSegmentos] = useState<SegmentoCircular>({
+    libres: 0,
+    morosos: 0,
+    enProgreso: 0,
+    total: 0,
+  });
+  const [listaRapidos, setListaRapidos] = useState<AptPago[]>([]);
 
   useEffect(() => {
     const token = localStorage.getItem("admin_token");
     if (!token) {
       router.replace("/admin/login");
+      return;
     }
+    const cargar = async () => {
+      try {
+        setCargando(true);
+        const [apts, recibos, pagosPend, pagosAcept] = await Promise.all([
+          fetchApartments(),
+          fetchRecibos(),
+          fetchPayments(undefined, undefined, "pendiente"),
+          fetchPayments(undefined, undefined, "aceptado"),
+        ]);
+        const totalApartamentos = apts.length;
+        const seg = calcularSegmentos(recibos, pagosPend, totalApartamentos);
+        setSegmentos(seg);
+        const ordenados = apartamentosQueMasRapidoPagan(pagosAcept);
+        setListaRapidos(ordenados);
+      } catch {
+        setSegmentos({ libres: 0, morosos: 0, enProgreso: 0, total: 0 });
+        setListaRapidos([]);
+      } finally {
+        setCargando(false);
+      }
+    };
+    cargar();
   }, [router]);
 
+  if (cargando) {
+    return (
+      <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center bg-slate-50">
+        <p className="text-slate-600">Cargando resumen…</p>
+      </div>
+    );
+  }
+
+  const { libres, morosos, enProgreso, total } = segmentos;
+  const pLibres = total > 0 ? Math.round((libres / total) * 100) : 0;
+  const pMorosos = total > 0 ? Math.round((morosos / total) * 100) : 0;
+  const pEnProgreso = total > 0 ? Math.round((enProgreso / total) * 100) : 0;
+
   return (
-    <div className="flex min-h-[calc(100vh-4rem)] flex-col items-center justify-center bg-slate-50 px-4 py-12">
-      <div className="flex max-w-md flex-col items-center text-center">
-        <Image
-          src="/404-error-img.jpg"
-          alt="Página en construcción"
-          width={400}
-          height={300}
-          className="rounded-lg object-contain shadow-md"
-          priority
-        />
-        <h1 className="mt-6 text-2xl font-bold text-slate-800">
-          Resumen en construcción
-        </h1>
-        <p className="mt-2 text-slate-600">
-          Esta sección estará disponible próximamente. Aquí podrás consultar el
-          resumen del condominio.
-        </p>
+    <div className="min-h-[calc(100vh-4rem)] bg-slate-50 px-4 py-8">
+      <div className="mx-auto max-w-4xl">
+        <h1 className="mb-8 text-2xl font-bold text-slate-800">Resumen del condominio</h1>
+
+        <div className="mb-10 grid gap-8 lg:grid-cols-2">
+          {/* Gráfico circular */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="mb-4 text-lg font-semibold text-slate-800">
+              Estado de cobranza
+            </h2>
+            <GraficoCircularResumen seg={segmentos} />
+            <div className="mt-6 grid grid-cols-3 gap-4 text-center">
+              <div className="flex flex-col items-center gap-1">
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100">
+                  <svg className="h-5 w-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </span>
+                <span className="text-xl font-bold text-slate-800">{pLibres}%</span>
+                <span className="text-xs text-slate-500">Libres de deudas</span>
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-100">
+                  <svg className="h-5 w-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                  </svg>
+                </span>
+                <span className="text-xl font-bold text-slate-800">{pEnProgreso}%</span>
+                <span className="text-xs text-slate-500">Progreso pago</span>
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
+                  <svg className="h-5 w-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
+                  </svg>
+                </span>
+                <span className="text-xl font-bold text-slate-800">{pMorosos}%</span>
+                <span className="text-xs text-slate-500">Morosos</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Apartamentos que más rápido pagan */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="mb-4 text-lg font-semibold text-slate-800">
+              Apartamentos que más rápido pagan
+            </h2>
+            <p className="mb-4 text-sm text-slate-500">
+              Ordenados por fecha del primer pago (quien paga primero).
+            </p>
+            {listaRapidos.length === 0 ? (
+              <p className="py-8 text-center text-slate-500">
+                No hay pagos aceptados aún.
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[280px] text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-slate-600">
+                      <th className="pb-2 font-medium">Apartamento</th>
+                      <th className="pb-2 font-medium">Primer pago</th>
+                      <th className="pb-2 font-medium">Total pagado</th>
+                      <th className="pb-2 font-medium">Pagos</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {listaRapidos.slice(0, 10).map((apt) => (
+                      <tr
+                        key={`${apt.piso}-${apt.apartamento}`}
+                        className="border-b border-slate-100 hover:bg-slate-50"
+                      >
+                        <td className="py-3 font-medium text-slate-800">
+                          Piso {apt.piso} – Apt {apt.apartamento}
+                        </td>
+                        <td className="py-3 text-slate-600">
+                          {new Date(apt.primerPago).toLocaleDateString("es-VE", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </td>
+                        <td className="py-3 text-slate-800">
+                          {new Intl.NumberFormat("es-VE", {
+                            style: "currency",
+                            currency: "USD",
+                          }).format(apt.totalPagado)}
+                        </td>
+                        <td className="py-3 text-slate-600">{apt.cantidadPagos}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

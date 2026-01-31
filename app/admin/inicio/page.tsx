@@ -11,7 +11,6 @@ import {
   aceptarPago,
   rechazarPago,
   getComprobanteUrl,
-  fetchApartments,
   fetchTasaBcv,
   type Payment,
   type Recibo,
@@ -34,7 +33,7 @@ const MESES = [
 
 type Metricas = {
   pagosRegistrados: number;
-  pagosPendientesFacturas: number;
+  apartamentosConDeudas: number;
   apartamentosSinDeudasActivas: number;
   apartamentosSoloDeudaCuotasEspeciales: number;
 };
@@ -46,7 +45,7 @@ export default function AdminInicioPage() {
   const [pagoSeleccionado, setPagoSeleccionado] = useState<Payment | null>(null);
   const [metricas, setMetricas] = useState<Metricas>({
     pagosRegistrados: 0,
-    pagosPendientesFacturas: 0,
+    apartamentosConDeudas: 0,
     apartamentosSinDeudasActivas: 0,
     apartamentosSoloDeudaCuotasEspeciales: 0,
   });
@@ -54,6 +53,7 @@ export default function AdminInicioPage() {
   const [procesando, setProcesando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tasaBcv, setTasaBcv] = useState<number | null>(null);
+  const [menuAbierto, setMenuAbierto] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("admin_token");
@@ -66,7 +66,7 @@ export default function AdminInicioPage() {
 
   function esDeudaCondominio(tipoDeuda: string): boolean {
     const t = tipoDeuda.toLowerCase();
-    return t.includes("condominio") || t === "pendiente";
+    return t.includes("condominio") || t === "pendiente" || t === "factura";
   }
 
   function esDeudaCuotasEspeciales(tipoDeuda: string): boolean {
@@ -80,7 +80,23 @@ export default function AdminInicioPage() {
     totalApartamentos: number,
   ): Metricas {
     const pagosRegistrados = todosPagos.length;
-    const pagosPendientesFacturas = todosPagos.filter((p) => p.estado === "pendiente").length;
+    // Apartamentos únicos con al menos una deuda pendiente (condominio o cuotas especiales)
+    const recibosPendientesCondominioOCuotas = recibos.filter(
+      (r) =>
+        (esDeudaCondominio(r.tipoDeuda) || esDeudaCuotasEspeciales(r.tipoDeuda)) &&
+        (r.estado ?? "pendiente") === "pendiente" &&
+        (r.montoPagado ?? 0) < r.montoUsd,
+    );
+    // Un apartamento cuenta una sola vez aunque tenga varias facturas pendientes
+    const keysAptMorosos = new Set<string>();
+    for (const r of recibosPendientesCondominioOCuotas) {
+      const p = Number(r.piso);
+      const a = Number(r.apartamento);
+      if (Number.isFinite(p) && Number.isFinite(a)) {
+        keysAptMorosos.add(`${p}-${a}`);
+      }
+    }
+    const apartamentosConDeudas = keysAptMorosos.size;
     const recibosConSaldo = recibos.filter((r) => (r.montoPagado ?? 0) < r.montoUsd);
     const apartamentosConDeuda = new Set(
       recibosConSaldo.map((r) => `${r.piso}-${r.apartamento}`),
@@ -98,7 +114,7 @@ export default function AdminInicioPage() {
     ).length;
     return {
       pagosRegistrados,
-      pagosPendientesFacturas,
+      apartamentosConDeudas,
       apartamentosSinDeudasActivas: Math.max(0, apartamentosSinDeudasActivas),
       apartamentosSoloDeudaCuotasEspeciales,
     };
@@ -107,20 +123,23 @@ export default function AdminInicioPage() {
   async function cargarDatos() {
     try {
       setCargando(true);
-      const [pagos, apts, tasaRes] = await Promise.all([
+      const [pagosPend, pagosAcept, apts, recibos, tasaRes] = await Promise.all([
         fetchPayments(undefined, undefined, "pendiente"),
-        fetchPayments(),
         fetchPayments(undefined, undefined, "aceptado"),
         fetchApartments(),
+        fetchRecibos(),
         fetchTasaBcv().catch(() => null),
       ]);
       setPagosPendientes(pagosPend);
-      const aceptadosOrdenados = pagosAcept.sort((a, b) => {
+      const aceptadosOrdenados = [...pagosAcept].sort((a, b) => {
         const fa = a.createdAt ? new Date(a.createdAt).getTime() : 0;
         const fb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
         return fb - fa;
       });
-      setApartamentos(ordenados);
+      setPagosAceptados(aceptadosOrdenados);
+      const todosPagos = [...pagosPend, ...pagosAcept];
+      const metricasCalculadas = calcularMetricas(todosPagos, recibos, apts.length);
+      setMetricas(metricasCalculadas);
       setTasaBcv(tasaRes ? tasaRes.promedio : null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al cargar datos");
@@ -234,7 +253,7 @@ export default function AdminInicioPage() {
           <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="mb-3 flex items-start justify-between">
               <span className="text-sm font-medium text-slate-600">
-                Pagos pendientes de facturas de condominio
+                Apartamentos con deudas
               </span>
               <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#dbeafe]">
                 <svg className="h-5 w-5 text-[#1d4ed8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -242,8 +261,8 @@ export default function AdminInicioPage() {
                 </svg>
               </span>
             </div>
-            <p className="text-2xl font-bold text-slate-800">{metricas.pagosPendientesFacturas}</p>
-            <p className="mt-1 text-xs text-slate-500">Por verificar</p>
+            <p className="text-2xl font-bold text-slate-800">{metricas.apartamentosConDeudas}</p>
+            <p className="mt-1 text-xs text-slate-500">Morosos (condominio o cuotas especiales)</p>
           </div>
           <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="mb-3 flex items-start justify-between">
@@ -274,7 +293,7 @@ export default function AdminInicioPage() {
             <p className="mt-1 text-xs text-slate-500">Solo cuotas especiales</p>
           </div>
         </div>
-      </aside>
+      </div>
 
       {/* Contenido principal - se desplaza cuando el menú está abierto */}
       <main
@@ -402,6 +421,7 @@ export default function AdminInicioPage() {
             </Link>
           </div>
         </div>
+      </main>
 
       {/* Modal mejorado */}
       {pagoSeleccionado && (
@@ -556,7 +576,6 @@ export default function AdminInicioPage() {
           </div>
         </div>
       )}
-      </div>
     </div>
   );
 }

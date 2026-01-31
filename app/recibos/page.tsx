@@ -63,7 +63,8 @@ export default function RecibosPage() {
     setApartamentoSeleccionado(null);
   };
 
-  const cargarDatos = () => {
+  // silent = true: actualización en segundo plano (interval), no muestra "Cargando" ni resetea scroll
+  const cargarDatos = (silent = false) => {
     if (
       vista !== "recibos" ||
       pisoSeleccionado == null ||
@@ -73,9 +74,11 @@ export default function RecibosPage() {
       setRecibosPendientes([]);
       return;
     }
-    setCargando(true);
-    setCargandoRecibos(true);
-    setError(null);
+    if (!silent) {
+      setCargando(true);
+      setCargandoRecibos(true);
+      setError(null);
+    }
     Promise.all([
       fetchPayments(pisoSeleccionado, apartamentoSeleccionado),
       fetchRecibos(pisoSeleccionado, apartamentoSeleccionado, "pendiente"),
@@ -84,24 +87,30 @@ export default function RecibosPage() {
         setPagos(pagosData);
         setRecibosPendientes(recibosData);
       })
-      .catch(() => setError("No se pudieron cargar los datos"))
+      .catch(() => {
+        if (!silent) setError("No se pudieron cargar los datos");
+      })
       .finally(() => {
-        setCargando(false);
-        setCargandoRecibos(false);
+        if (!silent) {
+          setCargando(false);
+          setCargandoRecibos(false);
+        }
       });
   };
 
   useEffect(() => {
-    cargarDatos();
-    
-    // Recargar datos cada 10 segundos cuando la página está activa
-    // Esto asegura que el propietario vea los cambios cuando el admin acepta un pago
+    cargarDatos(false);
+    // Recargar datos cada 10 segundos en segundo plano (sin mostrar "Cargando" para no resetear scroll)
     const intervalId = setInterval(() => {
-      if (document.visibilityState === 'visible' && vista === "recibos" && pisoSeleccionado != null && apartamentoSeleccionado != null) {
-        cargarDatos();
+      if (
+        document.visibilityState === "visible" &&
+        vista === "recibos" &&
+        pisoSeleccionado != null &&
+        apartamentoSeleccionado != null
+      ) {
+        cargarDatos(true);
       }
-    }, 10000); // 10 segundos
-
+    }, 10000);
     return () => clearInterval(intervalId);
   }, [vista, pisoSeleccionado, apartamentoSeleccionado]);
 
