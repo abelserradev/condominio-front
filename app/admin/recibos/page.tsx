@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import imageCompression from "browser-image-compression";
@@ -30,7 +30,7 @@ const MESES = [
   "Diciembre",
 ];
 
-export default function AdminRecibosPage() {
+function AdminRecibosContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const piso = searchParams.get("piso");
@@ -820,5 +820,19 @@ export default function AdminRecibosPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function AdminRecibosPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-slate-50">
+          <p className="text-slate-600">Cargando…</p>
+        </div>
+      }
+    >
+      <AdminRecibosContent />
+    </Suspense>
   );
 }
