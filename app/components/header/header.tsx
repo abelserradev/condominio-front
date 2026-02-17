@@ -57,9 +57,9 @@ export function Header() {
       </svg>
     </Link>
   );
-
   return (
     <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-slate-200/80 bg-white/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-white/80 sm:px-6">
+      {/* Izquierda: marca / título (solo un bloque) */}
       {esAdmin ? (
         <div className="flex items-center gap-3">
           {logoIcon}
@@ -67,42 +67,26 @@ export function Header() {
             Condominio Residencia Sofia
           </span>
         </div>
-        <span className="text-sm font-semibold tracking-tight text-slate-800 md:text-lg">
-          Condominio Residencia Sofia
-        </span>
-      ) : (
-        <Link
-          href="/"
-          className="text-sm font-semibold tracking-tight text-slate-800 md:text-lg"
-        >
-          Condominio Residencia Sofia
-        </Link>
-      )}
-      {isAdmin ? (
-        <button
-          onClick={handleCerrarSesion}
-          className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-        >
-          Cerrar sesión
-        </button>
       ) : (
         <Link href="/" className="flex items-center gap-3">
           {logoIcon}
           <div className="flex flex-col">
             <span className="text-lg font-semibold tracking-tight text-slate-800">
-              Condominio Residencia Sofia
+              Residencia Sofia
             </span>
             <span className="text-xs text-slate-500">Portal de residentes</span>
           </div>
         </Link>
       )}
+  
+      {/* Derecha: notificaciones + sesión (solo un bloque) */}
       <div className="flex items-center gap-3">
         {!esAdmin && bellIcon}
         {isAdmin ? (
           <button
-            onClick={handleCerrarSesion}
-            className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-          >
+          onClick={handleCerrarSesion}
+          className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+        >
             Cerrar sesión
           </button>
         ) : (
