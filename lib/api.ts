@@ -245,3 +245,78 @@ export async function postRecibo(formData: FormData): Promise<Recibo> {
   }
   return res.json();
 }
+
+export type AvisoPrioridad = "alta" | "media" | "baja";
+export type AvisoEstado = "publicado" | "borrador";
+export type AvisoTipo =
+  | "evento"
+  | "inconveniente"
+  | "aviso_general"
+  | "comunicado_oficial";
+
+export type Aviso = {
+  _id: string;
+  titulo: string;
+  mensaje: string;
+  tipo: AvisoTipo;
+  prioridad?: AvisoPrioridad;
+  estado?: AvisoEstado;
+  createdAt?: string;
+};
+
+export async function fetchAvisos(): Promise<Aviso[]> {
+  try {
+    const res = await fetch(`${getBaseUrl()}/avisos`, { cache: "no-store" });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function createAviso(body: {
+  titulo: string;
+  mensaje: string;
+  tipo: AvisoTipo;
+  prioridad?: AvisoPrioridad;
+  estado?: AvisoEstado;
+}): Promise<Aviso> {
+  const res = await fetch(`${getBaseUrl()}/avisos`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { message?: string }).message ?? "Error al crear aviso");
+  }
+  return res.json();
+}
+
+export async function updateAviso(
+  id: string,
+  body: Partial<Pick<Aviso, "titulo" | "mensaje" | "tipo" | "prioridad" | "estado">>
+): Promise<Aviso> {
+  const res = await fetch(`${getBaseUrl()}/avisos/${id}`, {
+    method: "PATCH",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { message?: string }).message ?? "Error al actualizar aviso");
+  }
+  return res.json();
+}
+
+export async function deleteAviso(id: string): Promise<void> {
+  const res = await fetch(`${getBaseUrl()}/avisos/${id}`, {
+    method: "DELETE",
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { message?: string }).message ?? "Error al eliminar aviso");
+  }
+}

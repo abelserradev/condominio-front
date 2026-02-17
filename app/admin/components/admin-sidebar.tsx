@@ -56,7 +56,11 @@ export function AdminSidebar() {
     function irAResumen() {
       router.push("/admin/resumen");
     }
-    
+
+    function irAAvisos() {
+      router.push("/admin/avisos");
+    }
+
     return (
       <aside className="fixed left-0 top-16 z-30 flex h-[calc(100vh-4rem)] w-64 flex-col bg-slate-900 text-white shadow-xl">
         <div className="flex flex-1 flex-col overflow-hidden">
@@ -113,7 +117,14 @@ export function AdminSidebar() {
                   })}
                 </ul>
               )}
-              <div className="mt-4 border-t border-slate-700 pt-3">
+              <div className="mt-4 border-t border-slate-700 pt-3 space-y-0.5">
+                <button
+                  type="button"
+                  onClick={irAAvisos}
+                  className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm font-medium text-white transition-colors hover:bg-slate-800"
+                >
+                  Avisos
+                </button>
                 <button
                   type="button"
                   onClick={irAResumen}

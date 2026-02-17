@@ -104,17 +104,18 @@ function apartamentosQueMasRapidoPagan(pagosAceptados: Payment[]): AptPago[] {
 
 const CX = 100;
 const CY = 100;
-const RADIO_EXTERNO = 72;
-const RADIO_MEDIO = 52;
-const RADIO_INTERNO = 32;
-const GROSOR_ARCO = 14;
+const GROSOR_ANILLO = 5;
+const SEPARACION_ANILLOS = 14;
+const RADIO_ANILLO_EXTERNO = 70;
+const RADIO_ANILLO_MEDIO = RADIO_ANILLO_EXTERNO - GROSOR_ANILLO - SEPARACION_ANILLOS;
+const RADIO_ANILLO_INTERNO = RADIO_ANILLO_MEDIO - GROSOR_ANILLO - SEPARACION_ANILLOS;
 
 function polarToXY(cx: number, cy: number, r: number, deg: number) {
   const rad = (deg * Math.PI) / 180;
   return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
 }
 
-function arcoPorcentaje(
+function arcoAnillo(
   cx: number,
   cy: number,
   radio: number,
@@ -123,7 +124,7 @@ function arcoPorcentaje(
 ) {
   if (porcentaje <= 0) return null;
   const grados = Math.min(100, porcentaje) * 3.6;
-  const startDeg = 90;
+  const startDeg = -90;
   const endDeg = startDeg + grados;
   const large = grados > 180 ? 1 : 0;
   const p1 = polarToXY(cx, cy, radio, startDeg);
@@ -135,8 +136,8 @@ function arcoPorcentaje(
       d={d}
       fill="none"
       stroke={color}
-      strokeWidth={GROSOR_ARCO}
-      strokeLinecap="round"
+      strokeWidth={GROSOR_ANILLO}
+      strokeLinecap="butt"
     />
   );
 }
@@ -155,10 +156,10 @@ function GraficoCircularResumen({ seg }: { seg: SegmentoCircular }) {
   const pEnProgreso = total > 0 ? Math.round((enProgreso / total) * 100) : 0;
 
   return (
-    <svg viewBox="0 0 200 200" className="mx-auto h-64 w-64">
-      {arcoPorcentaje(CX, CY, RADIO_EXTERNO, pLibres, "#22c55e")}
-      {arcoPorcentaje(CX, CY, RADIO_MEDIO, pEnProgreso, "#f97316")}
-      {arcoPorcentaje(CX, CY, RADIO_INTERNO, pMorosos, "#ef4444")}
+    <svg viewBox="0 0 200 200" className="mx-auto h-64 w-64" aria-hidden>
+      {arcoAnillo(CX, CY, RADIO_ANILLO_EXTERNO, pLibres, "#22c55e")}
+      {arcoAnillo(CX, CY, RADIO_ANILLO_MEDIO, pEnProgreso, "#f97316")}
+      {arcoAnillo(CX, CY, RADIO_ANILLO_INTERNO, pMorosos, "#ef4444")}
     </svg>
   );
 }
