@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { IconCard } from "./components/home/icon-card";
+import { ActionCard } from "./components/home/action-card";
 import { ReporteOkBanner } from "./components/home/reporte-ok-banner";
 import { TasaBcvDelDia } from "./components/home/tasa-bcv-del-dia";
 import Image from "next/image";
@@ -48,8 +49,39 @@ export default function Home() {
       <Suspense fallback={null}>
         <ReporteOkBanner />
       </Suspense>
-      <div className="flex w-full max-w-2xl flex-col items-center gap-8">
-        {/* Primera fila: Recibos | Tasa BCV del día | Reportar pago */}
+  
+      {/* Solo móvil: tasa BCV + action cards en columna */}
+      <div className="flex w-full max-w-md flex-col gap-6 md:hidden">
+        <div className="w-full">
+          <TasaBcvDelDia />
+        </div>
+        <div className="flex w-full flex-col gap-4">
+          <ActionCard
+            href="/recibos"
+            title="Recibos de condominio"
+            subtitle="Consulta y descarga tus recibos"
+            icon={iconRecibos}
+            accent="blue"
+          />
+          <ActionCard
+            href="/reportar-pago"
+            title="Reportar pago"
+            subtitle="Sube tu comprobante de pago"
+            icon={iconReportarPago}
+            accent="purple"
+          />
+          <ActionCard
+            href="/reglamentos"
+            title="Reglamentos"
+            subtitle="Normas y reglamentos de la residencia"
+            icon={iconReglamentos}
+            accent="orange"
+          />
+        </div>
+      </div>
+  
+      {/* Solo desktop: layout original con grid e IconCard */}
+      <div className="hidden w-full max-w-2xl flex-col items-center gap-8 md:flex">
         <div className="grid w-full max-w-3xl grid-cols-1 gap-6 sm:grid-cols-3">
           <IconCard
             href="/recibos"
@@ -63,7 +95,6 @@ export default function Home() {
             icon={iconReportarPago}
           />
         </div>
-        {/* Segunda fila: Reglamentos */}
         <div className="w-full max-w-xs">
           <IconCard
             href="/reglamentos"

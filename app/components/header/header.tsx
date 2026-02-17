@@ -50,13 +50,13 @@ export function Header() {
   return (
     <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-slate-200/80 bg-white/95 px-6 backdrop-blur supports-[backdrop-filter]:bg-white/80">
       {esAdmin ? (
-        <span className="text-lg font-semibold tracking-tight text-slate-800">
+        <span className="text-sm font-semibold tracking-tight text-slate-800 md:text-lg">
           Condominio Residencia Sofia
         </span>
       ) : (
         <Link
           href="/"
-          className="text-lg font-semibold tracking-tight text-slate-800"
+          className="text-sm font-semibold tracking-tight text-slate-800 md:text-lg"
         >
           Condominio Residencia Sofia
         </Link>
