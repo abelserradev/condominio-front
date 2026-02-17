@@ -67,6 +67,24 @@ export function Header() {
             Condominio Residencia Sofia
           </span>
         </div>
+        <span className="text-sm font-semibold tracking-tight text-slate-800 md:text-lg">
+          Condominio Residencia Sofia
+        </span>
+      ) : (
+        <Link
+          href="/"
+          className="text-sm font-semibold tracking-tight text-slate-800 md:text-lg"
+        >
+          Condominio Residencia Sofia
+        </Link>
+      )}
+      {isAdmin ? (
+        <button
+          onClick={handleCerrarSesion}
+          className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+        >
+          Cerrar sesión
+        </button>
       ) : (
         <Link href="/" className="flex items-center gap-3">
           {logoIcon}

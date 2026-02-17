@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import imageCompression from "browser-image-compression";
@@ -8,6 +8,7 @@ import {
   fetchBanks,
   postPayment,
   fetchRecibos,
+  fetchTasaBcv,
   type Bank,
   type Recibo,
 } from "@/lib/api";
@@ -50,13 +51,20 @@ export default function ReportarPagoPage() {
   const [recibosSeleccionados, setRecibosSeleccionados] = useState<string[]>([]);
   const [cargandoRecibos, setCargandoRecibos] = useState(false);
   const [comprimiendo, setComprimiendo] = useState(false);
-
+  const [tasaBcv, setTasaBcv] = useState<number | null>(null);
+  
   useEffect(() => {
     fetchBanks()
       .then(setBancos)
       .catch(() => setErrorBancos("No se pudieron cargar los bancos"))
       .finally(() => setCargandoBancos(false));
   }, []);
+
+  useEffect(() => {
+    fetchTasaBcv()
+    .then((data) => setTasaBcv(data.promedio))
+    .catch(() => setTasaBcv(null))
+  }, [])
 
   useEffect(() => {
     async function cargarRecibos() {
@@ -86,8 +94,26 @@ export default function ReportarPagoPage() {
         } else {
           setRecibosSeleccionados([]);
         }
-        // Calcular total basado en recibos seleccionados
-        calcularTotal();
+        const idsSeleccionados = recibosFiltrados.length === 1
+          ? [recibosFiltrados[0]._id]
+          : [];
+        const total = recibosFiltrados
+          .filter((r) => idsSeleccionados.includes(r._id))
+          .reduce((sum, recibo) => {
+            const montoPagado = recibo.montoPagado ?? 0;
+            return sum + (recibo.montoUsd - montoPagado);
+          }, 0);
+        if (total > 0) {
+          setMontoUsd(total.toFixed(2));
+          if (tasaBcv != null && tasaBcv > 0) {
+            setMontoBs((total * tasaBcv).toFixed(2));
+          } else {
+            setMontoBs("");
+          }
+        } else {
+          setMontoUsd("");
+          setMontoBs("");
+        }
       } catch (err) {
         console.error("Error al cargar recibos:", err);
         setRecibosPendientes([]);
@@ -96,9 +122,9 @@ export default function ReportarPagoPage() {
       }
     }
     cargarRecibos();
-  }, [piso, apartamento, mesesSeleccionados]);
+  }, [piso, apartamento, mesesSeleccionados, tasaBcv]);
 
-  const calcularTotal = () => {
+  const calcularTotal = useCallback(() => {
     const recibosSeleccionadosData = recibosPendientes.filter((r) =>
       recibosSeleccionados.includes(r._id)
     );
@@ -111,16 +137,46 @@ export default function ReportarPagoPage() {
       0
     );
     if (total > 0) {
-      setMontoUsd(total.toFixed(2));
+      const totalFijo = total.toFixed(2);
+      setMontoUsd(totalFijo);
+      if (tasaBcv != null && tasaBcv > 0) {
+        setMontoBs((total * tasaBcv).toFixed(2));
+      } else {
+        setMontoBs("");
+      }
     } else {
       setMontoUsd("");
+      setMontoBs("");
     }
-  };
+  }, [recibosSeleccionados, recibosPendientes, tasaBcv]);
 
   useEffect(() => {
     calcularTotal();
-  }, [recibosSeleccionados, recibosPendientes]);
+  }, [calcularTotal]);
 
+  const handleMontoUsdChange = (value: string) => {
+    setMontoUsd(value);
+    if (tasaBcv != null && tasaBcv > 0) {
+      const num = parseFloat(value.replace(",", "."));
+      if (!Number.isNaN(num) && num >= 0) {
+        setMontoBs((num * tasaBcv).toFixed(2));
+      } else {
+        setMontoBs("");
+      }
+    }
+  };
+  
+  const handleMontoBsChange = (value: string) => {
+    setMontoBs(value);
+    if (tasaBcv != null && tasaBcv > 0) {
+      const num = parseFloat(value.replace(",", "."));
+      if (!Number.isNaN(num) && num >= 0) {
+        setMontoUsd((num / tasaBcv).toFixed(2));
+      } else {
+        setMontoUsd("");
+      }
+    }
+  };
   const toggleMes = (mesIndex: number) => {
     setMesesSeleccionados((prev) =>
       prev.includes(mesIndex)
@@ -211,6 +267,9 @@ export default function ReportarPagoPage() {
     formData.append("numeroComprobante", numeroComprobante);
     formData.append("montoUsd", montoUsd);
     const montoBsNum = montoBs.trim() !== "" ? parseFloat(montoBs) : undefined;
+    if (tasaBcv != null && tasaBcv > 0) {
+      formData.append("tasaBcv", String(tasaBcv));
+    }
     if (montoBsNum != null && !Number.isNaN(montoBsNum) && montoBsNum >= 0) {
       formData.append("montoBs", String(montoBsNum));
     }
@@ -486,7 +545,7 @@ export default function ReportarPagoPage() {
             type="number"
             id="montoUsd"
             value={montoUsd}
-            onChange={(e) => setMontoUsd(e.target.value)}
+            onChange={(e) => handleMontoUsdChange(e.target.value)}
             required
             min="0"
             step="0.01"
@@ -506,7 +565,7 @@ export default function ReportarPagoPage() {
             type="number"
             id="montoBs"
             value={montoBs}
-            onChange={(e) => setMontoBs(e.target.value)}
+            onChange={(e) => handleMontoBsChange(e.target.value)}
             required
             min="0"
             step="0.01"
