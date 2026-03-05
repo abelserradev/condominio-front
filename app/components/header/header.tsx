@@ -58,12 +58,22 @@ export function Header() {
     </Link>
   );
   return (
-    <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-slate-200/80 bg-white/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-white/80 sm:px-6">
+    <header
+      className={`sticky top-0 z-10 flex h-16 items-center justify-between px-4 py-3 backdrop-blur sm:px-6
+        ${esAdmin
+          ? "max-md:bg-[#5b21b6] max-md:border-[#6d28d9] max-md:border-b md:border-slate-200/80 md:bg-white/95 md:supports-[backdrop-filter]:bg-white/80"
+          : "border-b border-slate-200/80 bg-white/95 supports-[backdrop-filter]:bg-white/80"
+        }`}
+    >
       {/* Izquierda: marca / título (solo un bloque) */}
       {esAdmin ? (
         <div className="flex items-center gap-3">
-          {logoIcon}
-          <span className="text-lg font-semibold tracking-tight text-slate-800">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-white max-md:bg-white/20 md:bg-green-600">
+            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+            </svg>
+          </span>
+          <span className="text-lg font-semibold tracking-tight max-md:text-white md:text-slate-800">
             Condominio Residencia Sofia
           </span>
         </div>
@@ -84,9 +94,9 @@ export function Header() {
         {!esAdmin && bellIcon}
         {isAdmin ? (
           <button
-          onClick={handleCerrarSesion}
-          className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-        >
+            onClick={handleCerrarSesion}
+            className="rounded-lg px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 max-md:bg-[#7c3aed] max-md:text-white max-md:hover:bg-[#6d28d9] max-md:focus:ring-purple-400 md:bg-green-600 md:text-white md:hover:bg-green-700 md:focus:ring-green-500"
+          >
             Cerrar sesión
           </button>
         ) : (

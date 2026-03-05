@@ -4,6 +4,10 @@ import { Apartment, fetchApartments } from "@/lib/api";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+type AdminSidebarProps = {
+  abierto?: boolean;
+  onCerrar?: () => void;
+};
 
 function groupByPiso(apartamentos: Apartment[]): Map<number, Apartment[]> {
     const map = new Map<number, Apartment[]>();
@@ -18,7 +22,7 @@ function groupByPiso(apartamentos: Apartment[]): Map<number, Apartment[]> {
     return map;
 }
 
-export function AdminSidebar() {
+export function AdminSidebar({ abierto = false, onCerrar }: AdminSidebarProps) {
     const router = useRouter();
     const [apartamentos, setApartamentos] = useState<Apartment[]>([]);
     const [cargando, setCargando] = useState(true);
@@ -51,23 +55,51 @@ export function AdminSidebar() {
     
     function irARecibos(piso: number, apartamento: number) {
       router.push(`/admin/recibos?piso=${piso}&apartamento=${apartamento}`);
+      onCerrar?.();
     }
 
     function irAResumen() {
       router.push("/admin/resumen");
+      onCerrar?.();
     }
 
     function irAAvisos() {
       router.push("/admin/avisos");
+      onCerrar?.();
     }
 
+    const asideClasses = `fixed left-0 top-16 z-30 flex h-[calc(100vh-4rem)] w-64 flex-col bg-slate-900 text-white shadow-xl transition-transform duration-300 ease-in-out
+      max-md:z-50 max-md:top-16
+      ${abierto ? "max-md:translate-x-0" : "max-md:-translate-x-full"}`;
+
     return (
-      <aside className="fixed left-0 top-16 z-30 flex h-[calc(100vh-4rem)] w-64 flex-col bg-slate-900 text-white shadow-xl">
+      <>
+        {abierto && (
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={onCerrar}
+            onKeyDown={(e) => e.key === "Escape" && onCerrar?.()}
+            className="fixed inset-0 top-16 z-40 bg-black/50 md:hidden"
+            aria-label="Cerrar menú"
+          />
+        )}
+      <aside className={asideClasses}>
         <div className="flex flex-1 flex-col overflow-hidden">
-          <div className="flex shrink-0 items-center border-b border-slate-700 p-3">
+          <div className="flex shrink-0 items-center justify-between border-b border-slate-700 p-3">
             <span className="text-sm font-semibold uppercase tracking-wider text-slate-400">
               Navegación
             </span>
+            <button
+              type="button"
+              onClick={onCerrar}
+              className="rounded p-1.5 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white md:hidden"
+              aria-label="Cerrar menú"
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
             <div className="flex-1 overflow-y-auto p-3">
               <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
@@ -136,5 +168,6 @@ export function AdminSidebar() {
             </div>
           </div>
         </aside>
+      </>
       );
 }

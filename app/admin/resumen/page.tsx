@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   fetchApartments,
   fetchRecibos,
@@ -219,10 +220,19 @@ export default function AdminResumenPage() {
   const pEnProgreso = total > 0 ? Math.round((enProgreso / total) * 100) : 0;
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-slate-50 px-4 py-8">
-      <div className="mx-auto max-w-4xl">
-        <h1 className="mb-8 text-2xl font-bold text-slate-800">Resumen del condominio</h1>
-
+    <div className="min-h-[calc(100vh-4rem)] bg-slate-50">
+      <div className="border-b border-slate-200 bg-white px-4 py-4 md:px-6">
+        <div className="mx-auto flex max-w-4xl items-center justify-between">
+          <h1 className="text-xl font-bold text-slate-800 md:text-2xl">Resumen del condominio</h1>
+          <Link
+            href="/admin/inicio"
+            className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-700"
+          >
+            ← Volver al inicio
+          </Link>
+        </div>
+      </div>
+      <div className="mx-auto max-w-4xl px-4 py-8">
         <div className="mb-10 grid gap-8 lg:grid-cols-2">
           {/* Gráfico circular */}
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
