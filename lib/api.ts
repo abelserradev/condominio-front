@@ -1,5 +1,9 @@
-const getBaseUrl = () =>
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+const getBaseUrl = (): string => {
+  const url = process.env.NEXT_PUBLIC_API_URL;
+  if (url && url.startsWith("http")) return url;
+  if (typeof window !== "undefined") return "/api";
+  return "http://localhost:3001";
+};
 
 function getAuthToken(): string | null {
   if (typeof window === "undefined") {
