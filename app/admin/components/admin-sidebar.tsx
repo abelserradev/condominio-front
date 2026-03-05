@@ -27,6 +27,7 @@ export function AdminSidebar({ abierto = false, onCerrar }: AdminSidebarProps) {
     const [apartamentos, setApartamentos] = useState<Apartment[]>([]);
     const [cargando, setCargando] = useState(true);
     const [pisoExpandido, setPisoExpandido] = useState<Record<number, boolean>>({});
+    const [apartamentosExpandido, setApartamentosExpandido] = useState(false);
 
     useEffect(() => {
         async function cargar() {
@@ -102,53 +103,81 @@ export function AdminSidebar({ abierto = false, onCerrar }: AdminSidebarProps) {
             </button>
           </div>
             <div className="flex-1 overflow-y-auto p-3">
-              <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Pisos
-              </p>
-              {cargando ? (
-                <p className="py-2 text-sm text-slate-400">Cargando...</p>
-              ) : (
-                <ul className="space-y-0.5">
-                  {pisosOrdenados.map((piso) => {
-                    const expandido = pisoExpandido[piso] ?? false;
-                    const apts = porPiso.get(piso) ?? [];
-                    return (
-                      <li key={piso}>
-                        <button
-                          type="button"
-                          onClick={() => togglePiso(piso)}
-                          className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm text-white transition-colors hover:bg-slate-800"
-                        >
-                          <span className="font-medium">Piso {piso}</span>
-                          <svg
-                            className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${expandido ? "rotate-180" : ""}`}
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
+              {/* Toggle plegable solo en mobile (burger) */}
+              <button
+                type="button"
+                onClick={() => setApartamentosExpandido((v) => !v)}
+                className="mb-2 flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left md:hidden"
+                aria-expanded={apartamentosExpandido}
+              >
+                <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Pisos y apartamentos
+                </span>
+                <svg
+                  className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${apartamentosExpandido ? "rotate-180" : ""}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {/* Lista: en mobile plegable con scroll, en desktop siempre visible */}
+              <div
+                className={`transition-all duration-200 md:max-h-none md:overflow-visible ${
+                  apartamentosExpandido
+                    ? "max-md:max-h-[55vh] max-md:overflow-y-auto max-md:overscroll-contain"
+                    : "max-md:max-h-0 max-md:overflow-hidden"
+                }`}
+              >
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Pisos
+                </p>
+                {cargando ? (
+                  <p className="py-2 text-sm text-slate-400">Cargando...</p>
+                ) : (
+                  <ul className="space-y-0.5">
+                    {pisosOrdenados.map((piso) => {
+                      const expandido = pisoExpandido[piso] ?? false;
+                      const apts = porPiso.get(piso) ?? [];
+                      return (
+                        <li key={piso}>
+                          <button
+                            type="button"
+                            onClick={() => togglePiso(piso)}
+                            className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm text-white transition-colors hover:bg-slate-800"
                           >
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
-                        </button>
-                        {expandido && (
-                          <ul className="ml-3 space-y-0.5 border-l border-slate-700 pl-2">
-                            {apts.map((apt) => (
-                              <li key={apt._id}>
-                                <button
-                                  type="button"
-                                  onClick={() => irARecibos(apt.piso, apt.numero)}
-                                  className="block w-full rounded px-2 py-1.5 text-left text-sm text-slate-300 transition-colors hover:bg-slate-800 hover:text-white"
-                                >
-                                  Apartamento {apt.numero}
-                                </button>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
+                            <span className="font-medium">Piso {piso}</span>
+                            <svg
+                              className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${expandido ? "rotate-180" : ""}`}
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </button>
+                          {expandido && (
+                            <ul className="ml-3 space-y-0.5 border-l border-slate-700 pl-2">
+                              {apts.map((apt) => (
+                                <li key={apt._id}>
+                                  <button
+                                    type="button"
+                                    onClick={() => irARecibos(apt.piso, apt.numero)}
+                                    className="block w-full rounded px-2 py-1.5 text-left text-sm text-slate-300 transition-colors hover:bg-slate-800 hover:text-white"
+                                  >
+                                    Apartamento {apt.numero}
+                                  </button>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
               <div className="mt-4 border-t border-slate-700 pt-3 space-y-0.5">
                 <button
                   type="button"

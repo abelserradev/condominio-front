@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { AdminRedirectGuard } from "./components/admin-redirect-guard";
 import { Header } from "./components/header/header";
 import "./globals.css";
 
@@ -29,7 +30,9 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <Header />
-          <main  className="min-h-[calc(100vh-4rem)] bg-white">{children}</main>  
+        <AdminRedirectGuard>
+          <main className="min-h-[calc(100vh-4rem)] bg-white">{children}</main>
+        </AdminRedirectGuard>
       </body>
     </html>
   );
