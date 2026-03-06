@@ -13,4 +13,5 @@ Dominio: **buildforge.work**
 ## Requisitos
 
 - Backend desplegado en `https://api.buildforge.work`
-- Ver `.env.example` para plantilla de variables
+- **Variables de entorno** (configurar en Coolify, NO subir a Git):
+  - `NEXT_PUBLIC_API_URL`: URL de la API en producción
