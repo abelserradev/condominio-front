@@ -17,6 +17,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Condominio Residencia Sofia",
   description: "Gestión de recibos y pagos del condominio",
+  icons: {
+    icon: "/edificio.png"
+  }
 };
 
 export default function RootLayout({
