@@ -36,6 +36,31 @@ export async function obtenerCsrfToken(): Promise<string> {
   return data.csrfToken;
 }
 
+export type ComprobanteExtraction = {
+  banco?: string;
+  fechaPago?: string;
+  numeroComprobante?: string;
+  montoBs?: number;
+  montoUsd?: number;
+};
+
+export async function extractComprobante(file: File): Promise<ComprobanteExtraction> {
+  const formData = new FormData();
+  formData.append("comprobante", file);
+  const res = await fetch(`${getBaseUrl()}/ocr/extract-receipt`, {
+    method: "POST",
+    body: formData,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      (err as { message?: string }).message ??
+        "No pudimos leer el comprobante automáticamente. Por favor complete los datos manualmente."
+    );
+  }
+  return res.json();
+}
+
 export type Bank = { _id: string; nombre: string };
 
 export async function fetchBanks(): Promise<Bank[]> {
@@ -49,6 +74,12 @@ export type TasaBcv = { promedio: number; fechaActualizacion?: string };
 export async function fetchTasaBcv(): Promise<TasaBcv> {
   const res = await fetch(`${getBaseUrl()}/tasa-bcv`);
   if (!res.ok) throw new Error("Error al cargar tasa BCV");
+  return res.json();
+}
+
+export async function fetchTasaBcvPorFecha(fecha: string): Promise<TasaBcv> {
+  const res = await fetch(`${getBaseUrl()}/tasa-bcv/${fecha}`);
+  if (!res.ok) throw new Error("Error al cargar tasa BCV histórica");
   return res.json();
 }
 
