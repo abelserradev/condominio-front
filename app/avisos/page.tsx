@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { fetchAvisos, type Aviso } from "@/lib/api";
+import { fetchAvisos, getOrCreateDeviceId, markAvisosRead, type Aviso } from "@/lib/api";
 
 const TIPO_LABEL: Record<string, string> = {
   evento: "Evento",
@@ -29,6 +29,15 @@ export default function AvisosPage() {
       .then((lista) => setAvisos(lista.filter((a) => a.estado === "publicado")))
       .catch(() => setAvisos([]))
       .finally(() => setCargando(false));
+  }, []);
+
+  useEffect(() => {
+    const deviceId = getOrCreateDeviceId();
+    if (deviceId) {
+      markAvisosRead(deviceId).then(() => {
+        window.dispatchEvent(new Event("avisosVisitados"));
+      });
+    }
   }, []);
 
   return (

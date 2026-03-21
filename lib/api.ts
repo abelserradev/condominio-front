@@ -310,6 +310,41 @@ export async function fetchAvisos(): Promise<Aviso[]> {
   }
 }
 
+const AVISOS_DEVICE_ID_KEY = "avisos_device_id";
+
+export function getOrCreateDeviceId(): string {
+  if (typeof window === "undefined") return "";
+  let id = localStorage.getItem(AVISOS_DEVICE_ID_KEY);
+  if (!id) {
+    id = `d_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+    localStorage.setItem(AVISOS_DEVICE_ID_KEY, id);
+  }
+  return id;
+}
+
+export async function fetchUnreadAvisosCount(deviceId: string): Promise<number> {
+  try {
+    const res = await fetch(`${getBaseUrl()}/avisos/unread-count?deviceId=${encodeURIComponent(deviceId)}`, { cache: "no-store" });
+    if (!res.ok) return 0;
+    const data = await res.json();
+    return typeof data.count === "number" ? data.count : 0;
+  } catch {
+    return 0;
+  }
+}
+
+export async function markAvisosRead(deviceId: string): Promise<void> {
+  try {
+    await fetch(`${getBaseUrl()}/avisos/mark-read`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ deviceId }),
+    });
+  } catch {
+    //
+  }
+}
+
 export async function createAviso(body: {
   titulo: string;
   mensaje: string;

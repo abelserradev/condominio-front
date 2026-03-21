@@ -4,7 +4,8 @@ import { ActionCard } from "./components/home/action-card";
 import { ReporteOkBanner } from "./components/home/reporte-ok-banner";
 import { TasaBcvDelDia } from "./components/home/tasa-bcv-del-dia";
 import { NecesitasAyudaCard } from "./components/home/ayuda-card";
-import Image from "next/image";
+import { BannerPublicitario } from "./components/home/banner-publicitario";
+import { BannerInferior } from "./components/home/banner-inferior";
 
 const iconRecibos = (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
@@ -37,7 +38,11 @@ export default function Home() {
         <Suspense fallback={null}>
           <ReporteOkBanner />
         </Suspense>
+      </div>
 
+      <BannerPublicitario />
+
+      <div className="mx-auto max-w-3xl space-y-8">
         <TasaBcvDelDia />
 
         <section>
@@ -66,8 +71,9 @@ export default function Home() {
             />
           </div>
         </section>
-
+        <BannerInferior />
         <NecesitasAyudaCard />
+     
       </div>
     </div>
   );

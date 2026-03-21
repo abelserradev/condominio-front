@@ -3,11 +3,25 @@
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import Image from "next/image";
+import { getOrCreateDeviceId, fetchUnreadAvisosCount } from "@/lib/api";
+
+const logoBuildforge = (
+  <Image
+    src="/foreground.png"
+    alt="Logo Buildforge"
+    width={180}
+    height={45}
+    className="h-9 w-auto object-contain md:h-[45px] md-w[180px]"
+    priority
+  />
+)
 
 export function Header() {
   const router = useRouter();
   const pathname = usePathname();
   const [isAdmin, setIsAdmin] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     function verificarSesion() {
@@ -29,6 +43,31 @@ export function Header() {
     };
   }, []);
 
+  useEffect(() => {
+    if (pathname?.startsWith("/admin")) return;
+
+    function cargarUnread() {
+      const deviceId = getOrCreateDeviceId();
+      if (!deviceId) return;
+      fetchUnreadAvisosCount(deviceId).then(setUnreadCount);
+    }
+
+    cargarUnread();
+    const interval = setInterval(cargarUnread, 60_000);
+
+    const handleAvisosVisitados = () => {
+      setUnreadCount(0);
+      cargarUnread();
+    };
+
+    window.addEventListener("avisosVisitados", handleAvisosVisitados);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("avisosVisitados", handleAvisosVisitados);
+    };
+  }, [pathname]);
+
   function handleCerrarSesion() {
     localStorage.removeItem("admin_token");
     setIsAdmin(false);
@@ -49,17 +88,25 @@ export function Header() {
   const bellIcon = (
     <Link
       href="/avisos"
-      className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-50"
-      aria-label="Avisos de la administración"
+      className="relative inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-50"
+      aria-label={unreadCount > 0 ? `Avisos de la administración (${unreadCount} sin leer)` : "Avisos de la administración"}
     >
       <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
       </svg>
+      {unreadCount > 0 && (
+        <span
+          className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-medium text-white"
+          aria-hidden
+        >
+          {unreadCount > 99 ? "99+" : unreadCount}
+        </span>
+      )}
     </Link>
   );
   return (
     <header
-      className={`sticky top-0 z-10 flex h-16 items-center justify-between px-4 py-3 backdrop-blur sm:px-6
+      className={`sticky top-0 z-50 flex h-16 items-center justify-between px-4 py-3 backdrop-blur sm:px-6
         ${esAdmin
           ? "max-md:bg-[#5b21b6] max-md:border-[#6d28d9] max-md:border-b md:border-slate-200/80 md:bg-white/95 md:supports-[backdrop-filter]:bg-white/80"
           : "border-b border-slate-200/80 bg-white/95 supports-[backdrop-filter]:bg-white/80"
@@ -68,6 +115,7 @@ export function Header() {
       {/* Izquierda: marca / título (solo un bloque) */}
       {esAdmin ? (
         <div className="flex items-center gap-3">
+          {logoBuildforge}
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-white max-md:bg-white/20 md:bg-green-600">
             <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
@@ -79,6 +127,7 @@ export function Header() {
         </div>
       ) : (
         <Link href="/" className="flex items-center gap-3">
+          {logoBuildforge}
           {logoIcon}
           <div className="flex flex-col">
             <span className="text-lg font-semibold tracking-tight text-slate-800">
