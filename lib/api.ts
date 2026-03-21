@@ -134,6 +134,7 @@ export async function fetchPayments(
   // Agregar timestamp para evitar caché del navegador
   params.append("_t", String(Date.now()));
   const res = await fetch(`${getBaseUrl()}/payments?${params}`, {
+    headers: getAuthHeaders(),
     cache: 'no-store',
   });
   if (!res.ok) throw new Error("Error al cargar pagos");
@@ -141,7 +142,9 @@ export async function fetchPayments(
 }
 
 export async function fetchPayment(id: string): Promise<Payment> {
-  const res = await fetch(`${getBaseUrl()}/payments/${id}`);
+  const res = await fetch(`${getBaseUrl()}/payments/${id}`, {
+    headers: getAuthHeaders(),
+  });
   if (!res.ok) throw new Error("Error al cargar pago");
   return res.json();
 }
