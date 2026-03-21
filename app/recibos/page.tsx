@@ -5,7 +5,7 @@ import Link from "next/link";
 import { PisosGrid } from "../components/recibos/pisos-grid";
 import { ApartamentosGrid } from "../components/recibos/apartamentos-grid";
 import {
-  fetchPayments,
+  fetchPaymentsByApartamento,
   fetchRecibos,
   fetchAbono,
   getComprobanteUrl,
@@ -83,7 +83,7 @@ export default function RecibosPage() {
       setError(null);
     }
     Promise.all([
-      fetchPayments(pisoSeleccionado, apartamentoSeleccionado),
+      fetchPaymentsByApartamento(pisoSeleccionado, apartamentoSeleccionado),
       fetchRecibos(pisoSeleccionado, apartamentoSeleccionado, "pendiente"),
       fetchAbono(pisoSeleccionado, apartamentoSeleccionado),
     ])

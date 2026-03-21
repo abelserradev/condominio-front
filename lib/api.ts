@@ -149,6 +149,25 @@ export async function fetchPayment(id: string): Promise<Payment> {
   return res.json();
 }
 
+// Endpoint público para residentes — filtra estrictamente por piso y apartamento,
+// sin exponer pagos de otros apartamentos ni requerir JWT
+export async function fetchPaymentsByApartamento(
+  piso: number,
+  apartamento: number
+): Promise<Payment[]> {
+  const params = new URLSearchParams({
+    piso: String(piso),
+    apartamento: String(apartamento),
+    _t: String(Date.now()),
+  });
+  const res = await fetch(
+    `${getBaseUrl()}/payments/public/por-apartamento?${params}`,
+    { cache: "no-store" }
+  );
+  if (!res.ok) return [];
+  return res.json();
+}
+
 export async function postPayment(formData: FormData): Promise<Payment> {
   const csrfToken = await obtenerCsrfToken();
   const res = await fetch(`${getBaseUrl()}/payments`, {
