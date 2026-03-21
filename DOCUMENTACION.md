@@ -22,8 +22,8 @@ Todo funciona en el navegador (Chrome, Firefox, Safari, Edge) sin instalar nada.
 | Página | Ruta | Descripción |
 |--------|------|-------------|
 | **Inicio** | `/` | Página principal con enlaces a Recibos, Tasa BCV, Reportar pago, Reglamentos y Avisos. |
-| **Recibos** | `/recibos` | Consulta de recibos pendientes por piso y apartamento. Se elige el piso y luego el apartamento para ver el detalle. |
-| **Reportar pago** | `/reportar-pago` | Formulario para reportar un pago: piso, apartamento, meses, banco, monto y comprobante (imagen o PDF). El pago queda pendiente hasta que la administración lo acepte. |
+| **Recibos** | `/recibos` | Consulta de recibos pendientes por piso y apartamento. Si hay abono (crédito por pagos anteriores mayores a la deuda), se muestra como card "Abono a tu favor" y se deduce del total a pagar. |
+| **Reportar pago** | `/reportar-pago` | Formulario para reportar un pago: piso, apartamento, meses, banco, monto y comprobante (imagen o PDF). Si hay abono, se aplica al total. Si el pago supera la deuda, el exceso queda como abono para futuras deudas. |
 | **Tasa BCV** | En inicio | Muestra la tasa de cambio del día (Banco Central de Venezuela). Útil para conversiones USD/BS al reportar pagos. |
 | **Reglamentos** | `/reglamentos` | Contenido estático con las normas del condominio. |
 | **Avisos** | `/avisos` | Avisos publicados por la administración para los residentes. |

@@ -7,6 +7,7 @@ import { ApartamentosGrid } from "../components/recibos/apartamentos-grid";
 import {
   fetchPayments,
   fetchRecibos,
+  fetchAbono,
   getComprobanteUrl,
   type Payment,
   type Recibo,
@@ -37,6 +38,7 @@ export default function RecibosPage() {
   >(null);
   const [pagos, setPagos] = useState<Payment[]>([]);
   const [recibosPendientes, setRecibosPendientes] = useState<Recibo[]>([]);
+  const [abono, setAbono] = useState<number>(0);
   const [cargando, setCargando] = useState(false);
   const [cargandoRecibos, setCargandoRecibos] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -72,6 +74,7 @@ export default function RecibosPage() {
     ) {
       setPagos([]);
       setRecibosPendientes([]);
+      setAbono(0);
       return;
     }
     if (!silent) {
@@ -82,10 +85,12 @@ export default function RecibosPage() {
     Promise.all([
       fetchPayments(pisoSeleccionado, apartamentoSeleccionado),
       fetchRecibos(pisoSeleccionado, apartamentoSeleccionado, "pendiente"),
+      fetchAbono(pisoSeleccionado, apartamentoSeleccionado),
     ])
-      .then(([pagosData, recibosData]) => {
+      .then(([pagosData, recibosData, abonoData]) => {
         setPagos(pagosData);
         setRecibosPendientes(recibosData);
+        setAbono(abonoData);
       })
       .catch(() => {
         if (!silent) setError("No se pudieron cargar los datos");
@@ -218,8 +223,54 @@ export default function RecibosPage() {
               {error}
             </p>
           )}
+          {!cargando && !error && recibosPendientes.length === 0 && pagos.length === 0 && (
+            <div className="mb-8 rounded-2xl border-2 border-green-200 bg-green-50/80 p-6 text-center">
+              <p className="text-lg font-semibold text-green-800">Estás al día</p>
+              <p className="mt-1 text-sm text-green-700">No tienes recibos pendientes ni historial de pagos en este apartamento.</p>
+            </div>
+          )}
+          {!cargando && !error && recibosPendientes.length === 0 && pagos.length > 0 && (
+            <div className="mb-8 rounded-2xl border-2 border-green-200 bg-green-50/80 p-6 text-center">
+              <p className="text-lg font-semibold text-green-800">Estás al día</p>
+              <p className="mt-1 text-sm text-green-700">No tienes recibos pendientes. Tus pagos anteriores aparecen abajo.</p>
+            </div>
+          )}
+          {!cargando && !error && abono > 0 && (
+            <article className="mb-6 overflow-hidden rounded-2xl border-2 border-emerald-200 bg-emerald-50/80 shadow-sm">
+              <div className="flex items-center gap-4 p-4">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-white">
+                  <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </span>
+                <div>
+                  <h3 className="text-base font-semibold text-emerald-900">Abono a tu favor</h3>
+                  <p className="text-2xl font-bold text-emerald-800">${abono.toFixed(2)} USD</p>
+                  <p className="mt-1 text-xs text-emerald-700">
+                    Se aplicará automáticamente a tus deudas cuando realices un pago.
+                  </p>
+                </div>
+              </div>
+            </article>
+          )}
           {!cargando && !error && recibosPendientes.length > 0 && (
             <div className="mb-8 space-y-5">
+              {abono > 0 && (
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 px-4 py-3 text-sm text-emerald-800">
+                  <p>
+                    <span className="font-medium">Total deuda:</span> $
+                    {recibosPendientes
+                      .reduce((s, r) => s + (r.montoUsd - (r.montoPagado ?? 0)), 0)
+                      .toFixed(2)}{" "}
+                    · <span className="font-medium">Abono aplicable:</span> ${abono.toFixed(2)} ·{" "}
+                    <span className="font-semibold">Total a pagar:</span> $
+                    {Math.max(
+                      0,
+                      recibosPendientes.reduce((s, r) => s + (r.montoUsd - (r.montoPagado ?? 0)), 0) - abono
+                    ).toFixed(2)}
+                  </p>
+                </div>
+              )}
               {recibosPendientes.map((recibo) => {
                 const estadoRecibo = recibo.estado ?? "pendiente";
                 const montoPagado = recibo.montoPagado ?? 0;

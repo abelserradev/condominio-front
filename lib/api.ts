@@ -231,6 +231,25 @@ export async function fetchApartments(piso?: number): Promise<Apartment[]> {
   return res.json();
 }
 
+/**
+ * Obtiene el abono (crédito) disponible para el apartamento.
+ * Si el endpoint no existe (404) o falla, retorna 0 para no romper la UX.
+ */
+export async function fetchAbono(piso: number, apartamento: number): Promise<number> {
+  try {
+    const params = new URLSearchParams({ piso: String(piso), apartamento: String(apartamento) });
+    params.append("_t", String(Date.now()));
+    const res = await fetch(`${getBaseUrl()}/administracion/public/abono?${params}`, {
+      cache: "no-store",
+    });
+    if (!res.ok) return 0;
+    const data = (await res.json()) as { monto: number };
+    return data.monto ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
 export async function fetchRecibos(
   piso?: number,
   apartamento?: number,

@@ -8,6 +8,7 @@ import {
   fetchBanks,
   postPayment,
   fetchRecibos,
+  fetchAbono,
   fetchTasaBcv,
   fetchTasaBcvPorFecha,
   extractComprobante,
@@ -94,6 +95,8 @@ export default function ReportarPagoPage() {
   const [tasaBcv, setTasaBcv] = useState<number | null>(null);
   const [tasaBcvFecha, setTasaBcvFecha] = useState<string | null>(null);
   const [errorTasaHistorica, setErrorTasaHistorica] = useState<string | null>(null);
+  const [advertenciaSobrePago, setAdvertenciaSobrePago] = useState<string | null>(null);
+  const [abono, setAbono] = useState<number>(0);
   const ocrMontosAplicadosRef = useRef(false);
 
   useEffect(() => {
@@ -102,10 +105,6 @@ export default function ReportarPagoPage() {
       .catch(() => setErrorBancos("No se pudieron cargar los bancos"))
       .finally(() => setCargandoBancos(false));
   }, []);
-
-  useEffect(() => {
-    ocrMontosAplicadosRef.current = false;
-  }, [piso, apartamento, mesesSeleccionados]);
 
   useEffect(() => {
     fetchTasaBcv()
@@ -117,16 +116,17 @@ export default function ReportarPagoPage() {
     async function cargarRecibos() {
       if (!piso || !apartamento || mesesSeleccionados.length === 0) {
         setRecibosPendientes([]);
+        setAbono(0);
         if (!ocrMontosAplicadosRef.current) setMontoUsd("");
         return;
       }
       try {
         setCargandoRecibos(true);
-        const todosRecibos = await fetchRecibos(
-          parseInt(piso),
-          parseInt(apartamento),
-          "pendiente"
-        );
+        const [todosRecibos, abonoData] = await Promise.all([
+          fetchRecibos(parseInt(piso), parseInt(apartamento), "pendiente"),
+          fetchAbono(parseInt(piso), parseInt(apartamento)),
+        ]);
+        setAbono(abonoData);
         const mesesNumeros = mesesSeleccionados.map((i) => i + 1);
         const recibosFiltrados = todosRecibos.filter((recibo) =>
           recibo.meses.some((mes) => mesesNumeros.includes(mes))
@@ -144,17 +144,18 @@ export default function ReportarPagoPage() {
         const idsSeleccionados = recibosFiltrados.length === 1
           ? [recibosFiltrados[0]._id]
           : [];
-        const total = recibosFiltrados
+        const totalDeuda = recibosFiltrados
           .filter((r) => idsSeleccionados.includes(r._id))
           .reduce((sum, recibo) => {
             const montoPagado = recibo.montoPagado ?? 0;
             return sum + (recibo.montoUsd - montoPagado);
           }, 0);
+        const totalAPagar = Math.max(0, totalDeuda - abonoData);
         if (!ocrMontosAplicadosRef.current) {
-          if (total > 0) {
-            setMontoUsd(total.toFixed(2));
+          if (totalAPagar > 0) {
+            setMontoUsd(totalAPagar.toFixed(2));
             if (tasaBcv != null && tasaBcv > 0) {
-              setMontoBs((total * tasaBcv).toFixed(2));
+              setMontoBs((totalAPagar * tasaBcv).toFixed(2));
             } else {
               setMontoBs("");
             }
@@ -178,19 +179,18 @@ export default function ReportarPagoPage() {
     const recibosSeleccionadosData = recibosPendientes.filter((r) =>
       recibosSeleccionados.includes(r._id)
     );
-    const total = recibosSeleccionadosData.reduce(
+    const totalDeuda = recibosSeleccionadosData.reduce(
       (sum, recibo) => {
         const montoPagado = recibo.montoPagado ?? 0;
-        const montoPendiente = recibo.montoUsd - montoPagado;
-        return sum + montoPendiente;
+        return sum + (recibo.montoUsd - montoPagado);
       },
       0
     );
-    if (total > 0) {
-      const totalFijo = total.toFixed(2);
-      setMontoUsd(totalFijo);
+    const totalAPagar = Math.max(0, totalDeuda - abono);
+    if (totalAPagar > 0) {
+      setMontoUsd(totalAPagar.toFixed(2));
       if (tasaBcv != null && tasaBcv > 0) {
-        setMontoBs((total * tasaBcv).toFixed(2));
+        setMontoBs((totalAPagar * tasaBcv).toFixed(2));
       } else {
         setMontoBs("");
       }
@@ -198,11 +198,33 @@ export default function ReportarPagoPage() {
       setMontoUsd("");
       setMontoBs("");
     }
-  }, [recibosSeleccionados, recibosPendientes, tasaBcv]);
+  }, [recibosSeleccionados, recibosPendientes, tasaBcv, abono]);
 
   useEffect(() => {
     calcularTotal();
   }, [calcularTotal]);
+
+  useEffect(() => {
+    if (!recibosPendientes.length || recibosSeleccionados.length === 0) {
+      setAdvertenciaSobrePago(null);
+      return;
+    }
+    const totalDeuda = recibosPendientes
+      .filter((r) => recibosSeleccionados.includes(r._id))
+      .reduce((sum, r) => {
+        const montoPagado = r.montoPagado ?? 0;
+        return sum + (r.montoUsd - montoPagado);
+      }, 0);
+    const montoNum = parseFloat(montoUsd);
+    if (!Number.isNaN(montoNum) && montoNum > totalDeuda) {
+      const exceso = montoNum - totalDeuda;
+      setAdvertenciaSobrePago(
+        `Precaución: el pago que realizaste ($${montoNum.toFixed(2)}) es mayor al de la deuda ($${totalDeuda.toFixed(2)}). Los $${exceso.toFixed(2)} restantes quedarán como abono a tu favor para futuras deudas. Puedes continuar si quieres realizar este abono.`
+      );
+    } else {
+      setAdvertenciaSobrePago(null);
+    }
+  }, [montoUsd, recibosSeleccionados, recibosPendientes]);
 
   const handleMontoUsdChange = (value: string) => {
     setMontoUsd(value);
@@ -719,20 +741,29 @@ export default function ReportarPagoPage() {
                 })}
               </div>
               {recibosSeleccionados.length > 0 && (
-                <div className="mt-3 flex items-center justify-between border-t border-green-200 pt-3">
-                  <p className="text-sm font-semibold text-green-800">
-                    Total a pagar:
-                  </p>
-                  <p className="text-lg font-bold text-green-700">
-                    $
-                    {recibosPendientes
-                      .filter((r) => recibosSeleccionados.includes(r._id))
-                      .reduce((sum, r) => {
-                        const montoPagado = r.montoPagado ?? 0;
-                        return sum + (r.montoUsd - montoPagado);
-                      }, 0)
-                      .toFixed(2)}
-                  </p>
+                <div className="mt-3 space-y-2 border-t border-green-200 pt-3">
+                  {abono > 0 && (
+                    <p className="text-xs text-emerald-700">
+                      Tienes ${abono.toFixed(2)} de abono que se aplicará a esta deuda.
+                    </p>
+                  )}
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold text-green-800">
+                      {abono > 0 ? "Total a pagar (con abono aplicado):" : "Total a pagar:"}
+                    </p>
+                    <p className="text-lg font-bold text-green-700">
+                      $
+                      {Math.max(
+                        0,
+                        recibosPendientes
+                          .filter((r) => recibosSeleccionados.includes(r._id))
+                          .reduce((sum, r) => {
+                            const montoPagado = r.montoPagado ?? 0;
+                            return sum + (r.montoUsd - montoPagado);
+                          }, 0) - abono
+                      ).toFixed(2)}
+                    </p>
+                  </div>
                 </div>
               )}
               {recibosPendientes.length > 1 && recibosSeleccionados.length === 0 && (
@@ -752,6 +783,12 @@ export default function ReportarPagoPage() {
               </p>
             )}
         </div>
+
+        {advertenciaSobrePago && (
+          <div className="rounded-lg border-2 border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            <p className="font-medium">⚠️ {advertenciaSobrePago}</p>
+          </div>
+        )}
 
         {errorEnvio && (
           <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
