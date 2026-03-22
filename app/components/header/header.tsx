@@ -12,7 +12,7 @@ const logoBuildforge = (
     alt="Logo Buildforge"
     width={180}
     height={45}
-    className="h-9 w-auto object-contain md:h-[45px] md-w[180px]"
+    className="h-8 w-auto shrink-0 object-contain md:h-[45px]"
     priority
   />
 )
@@ -78,8 +78,8 @@ export function Header() {
   const esAdmin = pathname?.startsWith("/admin");
 
   const logoIcon = (
-    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-green-600 text-white">
-      <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-green-600 text-white sm:h-10 sm:w-10">
+      <svg className="h-5 w-5 sm:h-6 sm:w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
       </svg>
     </span>
@@ -126,14 +126,14 @@ export function Header() {
           </span>
         </div>
       ) : (
-        <Link href="/" className="flex items-center gap-3">
+        <Link href="/" className="flex min-w-0 items-center gap-2 sm:gap-3">
           {logoBuildforge}
           {logoIcon}
-          <div className="flex flex-col">
-            <span className="text-lg font-semibold tracking-tight text-slate-800">
+          <div className="min-w-0 flex flex-col justify-center leading-tight">
+            <span className="text-sm font-semibold tracking-tight text-slate-800 sm:text-base md:text-lg">
               Residencia Sofia
             </span>
-            <span className="text-xs text-slate-500">Portal de residentes</span>
+            <span className="text-[10px] text-slate-500 sm:text-xs">Portal de residentes</span>
           </div>
         </Link>
       )}

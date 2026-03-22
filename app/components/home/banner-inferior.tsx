@@ -10,15 +10,15 @@ export function BannerInferior() {
           rel="noopener noreferrer"
           className="block overflow-hidden rounded-xl shadow-lg transition-shadow hover:shadow-xl"
         >
-          <div className="relative aspect-[468/60] w-full overflow-hidden">
-            <Image
-              src="/publicidad1.png"
-              alt="Diseño, innovación y creación - ¿Quieres tu propia web, app o software? Contáctame"
-              fill
-              className="object-cover"
-              sizes="(max-width: 768px) 100vw, 468px"
-            />
-          </div>
+          <Image
+            src="/publicidad1.png"
+            alt="Diseño, innovación y creación - ¿Quieres tu propia web, app o software? Contáctame"
+            width={468}
+            height={60}
+            className="h-auto w-full"
+            sizes="95vw"
+            priority
+          />
         </a>
       </div>
     </div>
