@@ -12,9 +12,12 @@ import {
   rechazarPago,
   getComprobanteUrl,
   fetchTasaBcv,
+  fetchMiSuscripcion,
   type Payment,
   type Recibo,
+  type BuildingSuscripcion,
 } from "@/lib/api";
+import { diasHasta } from "@/app/components/super/suscripcion-badge";
 
 const MESES = [
   "Enero",
@@ -53,7 +56,8 @@ export default function AdminInicioPage() {
   const [procesando, setProcesando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tasaBcv, setTasaBcv] = useState<number | null>(null);
-  const [menuAbierto, setMenuAbierto] = useState(false);
+  const [suscripcion, setSuscripcion] = useState<BuildingSuscripcion | null>(null);
+  const [modalPagoAbierto, setModalPagoAbierto] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("admin_token");
@@ -62,6 +66,7 @@ export default function AdminInicioPage() {
       return;
     }
     cargarDatos();
+    fetchMiSuscripcion().then(setSuscripcion).catch(() => {});
   }, [router]);
 
   function esDeudaCondominio(tipoDeuda: string): boolean {
@@ -219,23 +224,47 @@ export default function AdminInicioPage() {
   }
 
   return (
-    <div className="flex-1">
+    <div className="flex-1 pb-20 md:pb-0">
       {/* Header púrpura con título y botón */}
-      <header className="flex items-center justify-between bg-[#5b21b6] px-6 py-5">
-        <h1 className="text-2xl font-bold text-white">
+      <header className="flex flex-wrap items-center justify-between gap-3 bg-[#5b21b6] px-4 py-4 md:px-6 md:py-5">
+        <h1 className="text-lg font-bold leading-tight text-white md:text-2xl">
           Reportes de Pagos Pendientes
         </h1>
         <button
           type="button"
-          className="rounded-xl bg-[#7c3aed] px-5 py-2.5 text-sm font-medium text-white shadow transition-colors hover:bg-[#6d28d9]"
+          className="rounded-xl bg-[#7c3aed] px-4 py-2.5 text-sm font-medium text-white shadow transition-colors hover:bg-[#6d28d9]"
         >
           Factura condominio
         </button>
       </header>
 
-      <div className="p-6">
+      <div className="p-4 md:p-6">
+        {suscripcion && suscripcion.suscripcionHasta && (() => {
+          const dias = diasHasta(suscripcion.suscripcionHasta);
+          if (dias > 7 && suscripcion.estadoSuscripcion === "activo") return null;
+          return (
+            <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+              <p className="text-sm text-amber-900">
+                {suscripcion.estadoSuscripcion === "vencido" || suscripcion.estadoSuscripcion === "suspendido"
+                  ? "Tu suscripción está vencida o suspendida. Renueva para seguir gestionando el edificio."
+                  : dias <= 0
+                    ? "Tu suscripción vence hoy."
+                    : `Tu suscripción vence en ${dias} día${dias !== 1 ? "s" : ""}.`}
+              </p>
+              {suscripcion.datosContactoPago && (
+                <button
+                  type="button"
+                  onClick={() => setModalPagoAbierto(true)}
+                  className="mt-1 text-sm font-medium text-amber-800 underline"
+                >
+                  Ver instrucciones de pago
+                </button>
+              )}
+            </div>
+          );
+        })()}
         {/* Tarjetas de métricas */}
-        <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 md:mb-8">
           <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="mb-3 flex items-start justify-between">
               <span className="text-sm font-medium text-slate-600">
@@ -295,19 +324,15 @@ export default function AdminInicioPage() {
         </div>
       </div>
 
-      {/* Contenido principal - se desplaza cuando el menú está abierto */}
-      <main
-        className={`flex-1 p-6 transition-all duration-300 ${
-          menuAbierto ? "ml-64" : "ml-20"
-        }`}
-      >
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-          <h1 className="text-2xl font-bold text-slate-800">
+      {/* Contenido principal */}
+      <main className="flex-1 p-4 md:p-6">
+        <div className="mb-6 flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center md:justify-between">
+          <h2 className="text-xl font-bold text-slate-800 md:text-2xl">
             Reportes de Pagos Pendientes
-          </h1>
-          <div className="text-right">
+          </h2>
+          <div className="text-left md:text-right">
             <span className="text-sm font-medium text-slate-600">Tasa BCV del día </span>
-            <span className="ml-2 text-lg font-semibold text-green-700">
+            <span className="ml-2 text-base font-semibold text-green-700 md:text-lg">
               {tasaBcv == null ? "…" : `${tasaBcv.toLocaleString("es-VE")} Bs/USD`}
             </span>
           </div>
@@ -321,7 +346,7 @@ export default function AdminInicioPage() {
 
         <h2 className="mb-4 text-lg font-semibold text-slate-800">Pagos pendientes de verificar</h2>
         {pagosPendientes.length === 0 ? (
-          <div className="py-12 text-center text-slate-500">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 py-12 text-center text-slate-500">
             No hay pagos pendientes de verificar
           </div>
         ) : (
@@ -360,10 +385,49 @@ export default function AdminInicioPage() {
 
         {/* Sección Pagos aceptados */}
         <div className="mt-10 rounded-xl border border-slate-200 bg-white shadow-sm">
-          <h2 className="border-b border-slate-200 px-6 py-4 text-lg font-semibold text-slate-800">
+          <h2 className="border-b border-slate-200 px-4 py-4 text-lg font-semibold text-slate-800 md:px-6">
             Pagos aceptados
           </h2>
-          <div className="overflow-x-auto">
+          {/* Cards en mobile */}
+          <div className="space-y-3 p-4 md:hidden">
+            {pagosAceptados.length === 0 ? (
+              <p className="py-8 text-center text-slate-500">No hay pagos aceptados</p>
+            ) : (
+              pagosAceptados.slice(0, 5).map((pago) => (
+                <div
+                  key={pago._id}
+                  className="rounded-xl border border-slate-200 bg-slate-50/50 p-4"
+                >
+                  <div className="mb-3 flex items-start justify-between">
+                    <span className="rounded bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-700">
+                      Condominio
+                    </span>
+                    <span className="font-bold text-slate-800">{formatearMonto(pago.montoUsd)}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <span className="text-slate-600">Piso: </span>
+                      <span className="font-medium text-slate-800">{pago.piso}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-600">Apartamento: </span>
+                      <span className="rounded bg-green-100 px-2 py-0.5 font-medium text-green-800">
+                        {pago.apartamento}
+                      </span>
+                    </div>
+                    <div className="col-span-2">
+                      <span className="text-slate-600">Fecha de pago: </span>
+                      <span className="font-medium text-slate-800">
+                        {formatearFecha(pago.fechaPago)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+          {/* Tabla en desktop */}
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[500px]">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50 text-left text-sm font-medium text-slate-600">
@@ -400,11 +464,7 @@ export default function AdminInicioPage() {
                         {formatearMonto(pago.montoUsd)}
                       </td>
                       <td className="px-6 py-4 text-slate-600">
-                        {new Date(pago.fechaPago).toLocaleDateString("es-VE", {
-                          day: "2-digit",
-                          month: "2-digit",
-                          year: "numeric",
-                        })}
+                        {formatearFecha(pago.fechaPago)}
                       </td>
                     </tr>
                   ))
@@ -412,7 +472,7 @@ export default function AdminInicioPage() {
               </tbody>
             </table>
           </div>
-          <div className="border-t border-slate-200 px-6 py-4 text-center">
+          <div className="border-t border-slate-200 px-4 py-4 text-center md:px-6">
             <Link
               href="/admin/pagos-aceptados"
               className="text-sm font-medium text-[#5b21b6] transition-colors hover:text-[#7c3aed] hover:underline"
@@ -573,6 +633,22 @@ export default function AdminInicioPage() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {modalPagoAbierto && suscripcion?.datosContactoPago && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <h3 className="mb-3 text-lg font-semibold text-slate-800">Instrucciones de pago</h3>
+            <p className="whitespace-pre-wrap text-sm text-slate-700">{suscripcion.datosContactoPago}</p>
+            <button
+              type="button"
+              onClick={() => setModalPagoAbierto(false)}
+              className="mt-4 w-full rounded-lg bg-slate-800 py-2 text-sm text-white"
+            >
+              Cerrar
+            </button>
           </div>
         </div>
       )}

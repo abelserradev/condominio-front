@@ -3,9 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-
-const getBaseUrl = () =>
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+import { login, type LoginResponse } from "@/lib/api";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -18,55 +16,26 @@ export default function AdminLoginPage() {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    const url = `${getBaseUrl()}/auth/login`;
-    const bodyData = { usuario: usuario.trim(), contraseña };
-    console.log('[Login] Enviando POST', url, {
-      usuario: bodyData.usuario,
-      usuarioLength: bodyData.usuario.length,
-      tieneContraseña: !!bodyData.contraseña,
-      contraseñaLength: bodyData.contraseña?.length ?? 0,
-      bodyRaw: { ...bodyData, contraseña: bodyData.contraseña ? '[REDACTED]' : '(vacía)' },
-    });
     try {
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json; charset=utf-8",
-          "Accept": "application/json",
-        },
-        body: JSON.stringify(bodyData),
-        credentials: 'include',
-      });
-      console.log('[Login] Response', res.status, res.statusText, res.ok, res.headers.get('content-type'));
-      if (!res.ok) {
-        let errorText = '';
-        try {
-          errorText = await res.text();
-          console.log('[Login] error body', errorText);
-        } catch (e) {
-          console.error('[Login] Error al leer respuesta:', e);
-          errorText = `Error HTTP ${res.status}: ${res.statusText}`;
-        }
-        let msg = "Error al iniciar sesión";
-        try {
-          const j = JSON.parse(errorText) as { message?: string };
-          if (j?.message) msg = j.message;
-        } catch (_) {
-          if (errorText) msg = errorText;
-        }
-        throw new Error(msg);
-      }
-      const data = (await res.json()) as { access_token: string };
-      console.log('[Login] OK — guardando token', { hasToken: !!data?.access_token, tokenLength: data?.access_token?.length });
+      const data: LoginResponse = await login(usuario.trim(), contraseña);
       if (typeof window !== "undefined") {
         localStorage.setItem("admin_token", data.access_token);
+        localStorage.setItem("user_rol", data.rol ?? "admin");
+        if (data.edificio) localStorage.setItem("user_edificio", data.edificio);
+        if (data.piso != null) localStorage.setItem("user_piso", String(data.piso));
+        if (data.apartamento != null) localStorage.setItem("user_apartamento", String(data.apartamento));
+        if (data.idUnico) localStorage.setItem("user_id_unico", data.idUnico);
         window.dispatchEvent(new Event("adminLogin"));
       }
-      router.replace("/admin/inicio");
+      const destinos: Record<string, string> = {
+        superadmin: "/super/edificios",
+        admin: "/admin/inicio",
+        propietario: "/mi-apartamento",
+        inquilino: "/mi-apartamento",
+      };
+      router.replace(destinos[data.rol ?? "admin"] ?? "/admin/inicio");
     } catch (err) {
-      console.error('[Login] catch', err);
-      console.log('[Login] Mensaje mostrado al usuario:', err instanceof Error ? err.message : String(err));
-      if (err instanceof TypeError && err.message.includes('fetch')) {
+      if (err instanceof TypeError && err.message.includes("fetch")) {
         setError("Error de conexión. Verifica que el backend esté corriendo en http://localhost:3001");
       } else {
         setError(err instanceof Error ? err.message : "Error al iniciar sesión");
@@ -82,7 +51,7 @@ export default function AdminLoginPage() {
         className="w-[320px] rounded-lg p-6 text-center"
         style={{ background: "#2a2b38" }}
       >
-        <h4 className="mb-4 text-2xl font-medium" style={{ color: "#f5f5f5" }}>
+        <h4 className="mb-4 text-2xl font-medium" style={{ color: "#2a2b38" }}>
           Iniciar sesión
         </h4>
         <form onSubmit={handleSubmit}>

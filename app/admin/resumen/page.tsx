@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   fetchApartments,
   fetchRecibos,
@@ -104,17 +105,18 @@ function apartamentosQueMasRapidoPagan(pagosAceptados: Payment[]): AptPago[] {
 
 const CX = 100;
 const CY = 100;
-const RADIO_EXTERNO = 72;
-const RADIO_MEDIO = 52;
-const RADIO_INTERNO = 32;
-const GROSOR_ARCO = 14;
+const GROSOR_ANILLO = 5;
+const SEPARACION_ANILLOS = 14;
+const RADIO_ANILLO_EXTERNO = 70;
+const RADIO_ANILLO_MEDIO = RADIO_ANILLO_EXTERNO - GROSOR_ANILLO - SEPARACION_ANILLOS;
+const RADIO_ANILLO_INTERNO = RADIO_ANILLO_MEDIO - GROSOR_ANILLO - SEPARACION_ANILLOS;
 
 function polarToXY(cx: number, cy: number, r: number, deg: number) {
   const rad = (deg * Math.PI) / 180;
   return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
 }
 
-function arcoPorcentaje(
+function arcoAnillo(
   cx: number,
   cy: number,
   radio: number,
@@ -123,7 +125,7 @@ function arcoPorcentaje(
 ) {
   if (porcentaje <= 0) return null;
   const grados = Math.min(100, porcentaje) * 3.6;
-  const startDeg = 90;
+  const startDeg = -90;
   const endDeg = startDeg + grados;
   const large = grados > 180 ? 1 : 0;
   const p1 = polarToXY(cx, cy, radio, startDeg);
@@ -135,8 +137,8 @@ function arcoPorcentaje(
       d={d}
       fill="none"
       stroke={color}
-      strokeWidth={GROSOR_ARCO}
-      strokeLinecap="round"
+      strokeWidth={GROSOR_ANILLO}
+      strokeLinecap="butt"
     />
   );
 }
@@ -155,10 +157,10 @@ function GraficoCircularResumen({ seg }: { seg: SegmentoCircular }) {
   const pEnProgreso = total > 0 ? Math.round((enProgreso / total) * 100) : 0;
 
   return (
-    <svg viewBox="0 0 200 200" className="mx-auto h-64 w-64">
-      {arcoPorcentaje(CX, CY, RADIO_EXTERNO, pLibres, "#22c55e")}
-      {arcoPorcentaje(CX, CY, RADIO_MEDIO, pEnProgreso, "#f97316")}
-      {arcoPorcentaje(CX, CY, RADIO_INTERNO, pMorosos, "#ef4444")}
+    <svg viewBox="0 0 200 200" className="mx-auto h-64 w-64" aria-hidden>
+      {arcoAnillo(CX, CY, RADIO_ANILLO_EXTERNO, pLibres, "#22c55e")}
+      {arcoAnillo(CX, CY, RADIO_ANILLO_MEDIO, pEnProgreso, "#f97316")}
+      {arcoAnillo(CX, CY, RADIO_ANILLO_INTERNO, pMorosos, "#ef4444")}
     </svg>
   );
 }
@@ -218,10 +220,19 @@ export default function AdminResumenPage() {
   const pEnProgreso = total > 0 ? Math.round((enProgreso / total) * 100) : 0;
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-slate-50 px-4 py-8">
-      <div className="mx-auto max-w-4xl">
-        <h1 className="mb-8 text-2xl font-bold text-slate-800">Resumen del condominio</h1>
-
+    <div className="min-h-[calc(100vh-4rem)] bg-slate-50">
+      <div className="border-b border-slate-200 bg-white px-4 py-4 md:px-6">
+        <div className="mx-auto flex max-w-4xl items-center justify-between">
+          <h1 className="text-xl font-bold text-slate-800 md:text-2xl">Resumen del condominio</h1>
+          <Link
+            href="/admin/inicio"
+            className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-700"
+          >
+            ← Volver al inicio
+          </Link>
+        </div>
+      </div>
+      <div className="mx-auto max-w-4xl px-4 py-8">
         <div className="mb-10 grid gap-8 lg:grid-cols-2">
           {/* Gráfico circular */}
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">

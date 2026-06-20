@@ -5,8 +5,9 @@ import Link from "next/link";
 import { PisosGrid } from "../components/recibos/pisos-grid";
 import { ApartamentosGrid } from "../components/recibos/apartamentos-grid";
 import {
-  fetchPayments,
+  fetchPaymentsByApartamento,
   fetchRecibos,
+  fetchAbono,
   getComprobanteUrl,
   type Payment,
   type Recibo,
@@ -37,6 +38,7 @@ export default function RecibosPage() {
   >(null);
   const [pagos, setPagos] = useState<Payment[]>([]);
   const [recibosPendientes, setRecibosPendientes] = useState<Recibo[]>([]);
+  const [abono, setAbono] = useState<number>(0);
   const [cargando, setCargando] = useState(false);
   const [cargandoRecibos, setCargandoRecibos] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -72,6 +74,7 @@ export default function RecibosPage() {
     ) {
       setPagos([]);
       setRecibosPendientes([]);
+      setAbono(0);
       return;
     }
     if (!silent) {
@@ -80,12 +83,14 @@ export default function RecibosPage() {
       setError(null);
     }
     Promise.all([
-      fetchPayments(pisoSeleccionado, apartamentoSeleccionado),
+      fetchPaymentsByApartamento(pisoSeleccionado, apartamentoSeleccionado),
       fetchRecibos(pisoSeleccionado, apartamentoSeleccionado, "pendiente"),
+      fetchAbono(pisoSeleccionado, apartamentoSeleccionado),
     ])
-      .then(([pagosData, recibosData]) => {
+      .then(([pagosData, recibosData, abonoData]) => {
         setPagos(pagosData);
         setRecibosPendientes(recibosData);
+        setAbono(abonoData);
       })
       .catch(() => {
         if (!silent) setError("No se pudieron cargar los datos");
@@ -218,8 +223,54 @@ export default function RecibosPage() {
               {error}
             </p>
           )}
+          {!cargando && !error && recibosPendientes.length === 0 && pagos.length === 0 && (
+            <div className="mb-8 rounded-2xl border-2 border-green-200 bg-green-50/80 p-6 text-center">
+              <p className="text-lg font-semibold text-green-800">Estás al día</p>
+              <p className="mt-1 text-sm text-green-700">No tienes recibos pendientes ni historial de pagos en este apartamento.</p>
+            </div>
+          )}
+          {!cargando && !error && recibosPendientes.length === 0 && pagos.length > 0 && (
+            <div className="mb-8 rounded-2xl border-2 border-green-200 bg-green-50/80 p-6 text-center">
+              <p className="text-lg font-semibold text-green-800">Estás al día</p>
+              <p className="mt-1 text-sm text-green-700">No tienes recibos pendientes. Tus pagos anteriores aparecen abajo.</p>
+            </div>
+          )}
+          {!cargando && !error && abono > 0 && (
+            <article className="mb-6 overflow-hidden rounded-2xl border-2 border-emerald-200 bg-emerald-50/80 shadow-sm">
+              <div className="flex items-center gap-4 p-4">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-white">
+                  <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </span>
+                <div>
+                  <h3 className="text-base font-semibold text-emerald-900">Abono a tu favor</h3>
+                  <p className="text-2xl font-bold text-emerald-800">${abono.toFixed(2)} USD</p>
+                  <p className="mt-1 text-xs text-emerald-700">
+                    Se aplicará automáticamente a tus deudas cuando realices un pago.
+                  </p>
+                </div>
+              </div>
+            </article>
+          )}
           {!cargando && !error && recibosPendientes.length > 0 && (
             <div className="mb-8 space-y-5">
+              {abono > 0 && (
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 px-4 py-3 text-sm text-emerald-800">
+                  <p>
+                    <span className="font-medium">Total deuda:</span> $
+                    {recibosPendientes
+                      .reduce((s, r) => s + (r.montoUsd - (r.montoPagado ?? 0)), 0)
+                      .toFixed(2)}{" "}
+                    · <span className="font-medium">Abono aplicable:</span> ${abono.toFixed(2)} ·{" "}
+                    <span className="font-semibold">Total a pagar:</span> $
+                    {Math.max(
+                      0,
+                      recibosPendientes.reduce((s, r) => s + (r.montoUsd - (r.montoPagado ?? 0)), 0) - abono
+                    ).toFixed(2)}
+                  </p>
+                </div>
+              )}
               {recibosPendientes.map((recibo) => {
                 const estadoRecibo = recibo.estado ?? "pendiente";
                 const montoPagado = recibo.montoPagado ?? 0;
@@ -353,66 +404,32 @@ export default function RecibosPage() {
                   key={p._id}
                   className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-4">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <span
-                        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium text-white ${
-                          p.estado === "aceptado"
-                            ? "bg-green-500"
-                            : p.estado === "rechazado"
-                              ? "bg-red-500"
-                              : "bg-slate-400"
-                        }`}
-                      >
-                        {p.estado === "aceptado" && (
-                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
-                        )}
-                        {obtenerTextoEstado(p.estado)}
-                      </span>
-                      <span className="text-sm text-slate-500">
-                        {p.estado === "aceptado"
-                          ? `Aprobada el ${formatearFecha(p.fechaPago)}`
+                  <div className="flex flex-wrap items-center gap-3 p-4">
+                    <span
+                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium text-white ${
+                        p.estado === "aceptado"
+                          ? "bg-green-500"
                           : p.estado === "rechazado"
-                            ? `Rechazada`
-                            : `Pendiente`}
-                      </span>
-                    </div>
-                    {p.comprobanteFileId ? (
-                      <a
-                        href={getComprobanteUrl(p.comprobanteFileId)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
-                      >
+                            ? "bg-red-500"
+                            : "bg-slate-400"
+                      }`}
+                    >
+                      {p.estado === "aceptado" && (
                         <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
-                        Ver
-                      </a>
-                    ) : (
-                      <span className="text-sm text-slate-400">Sin comprobante</span>
-                    )}
+                      )}
+                      {obtenerTextoEstado(p.estado)}
+                    </span>
+                    <span className="text-sm text-slate-500">
+                      {p.estado === "aceptado"
+                        ? `Aprobada el ${formatearFecha(p.fechaPago)}`
+                        : p.estado === "rechazado"
+                          ? `Rechazada`
+                          : `Pendiente`}
+                    </span>
                   </div>
-                  <div className="grid grid-cols-2 gap-x-6 gap-y-4 p-4 sm:grid-cols-3">
-                    <div className="flex items-start gap-3">
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
-                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                        </svg>
-                      </span>
-                      <div>
-                        <p className="text-xs text-slate-500">Piso</p>
-                        <p className="font-semibold text-slate-800">{p.piso}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <div>
-                        <p className="text-xs text-slate-500">Apartamento</p>
-                        <p className="font-semibold text-slate-800">{p.apartamento}</p>
-                      </div>
-                    </div>
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-4 border-t border-slate-100 p-4">
                     <div className="flex items-start gap-3">
                       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
                         <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -427,27 +444,6 @@ export default function RecibosPage() {
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
-                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </span>
-                      <div>
-                        <p className="text-xs text-slate-500">Monto</p>
-                        <p className="font-semibold text-slate-800 leading-tight">
-                          $ {p.montoUsd} USD
-                          {p.montoBs != null && (
-                            <>
-                              <br />
-                              <span className="text-slate-700">
-                                {p.montoBs.toLocaleString("es-VE")} Bs
-                              </span>
-                            </>
-                          )}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-3 sm:col-span-2">
                       <div>
                         <p className="text-xs text-slate-500">Fecha Pago</p>
                         <p className="font-semibold text-slate-800">
