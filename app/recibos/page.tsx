@@ -33,11 +33,11 @@ type Vista = "pisos" | "apartamentos" | "recibos";
 function clasesBadgeEstadoPago(estado?: string): string {
   switch (estado) {
     case "aceptado":
-      return "bg-green-500";
+      return "bg-secondary";
     case "rechazado":
-      return "bg-red-500";
+      return "bg-destructive";
     default:
-      return "bg-slate-400";
+      return "bg-muted-foreground";
   }
 }
 
@@ -55,11 +55,11 @@ function obtenerTextoEstado(estado?: string): string {
 function clasesBadgeEstadoRecibo(estado: string): string {
   switch (estado) {
     case "aceptado":
-      return "bg-green-100 text-green-800";
+      return "bg-primary/20 text-foreground";
     case "rechazado":
-      return "bg-red-100 text-red-800";
+      return "bg-destructive/10 text-destructive";
     default:
-      return "bg-slate-100 text-slate-700";
+      return "bg-muted text-muted-foreground";
   }
 }
 
@@ -204,18 +204,18 @@ export default function RecibosPage() {
   };
 
   return (
-    <div className="mx-auto min-h-[calc(100vh-4rem)] max-w-2xl bg-white px-4 py-8">
+    <div className="mx-auto min-h-[calc(100vh-4rem)] max-w-2xl bg-background px-4 py-8">
       {vista === "pisos" && (
         <>
           <div className="mb-6">
             <Link
               href="/"
-              className="text-sm font-medium text-green-600 hover:text-green-700"
+              className="text-sm font-medium text-secondary hover:text-secondary/80"
             >
               ← Inicio
             </Link>
           </div>
-          <h1 className="mb-8 text-center text-2xl font-semibold text-green-600">
+          <h1 className="mb-8 text-center text-2xl font-semibold text-foreground">
             Pisos
           </h1>
           <PisosGrid onSelectPiso={handleSelectPiso} />
@@ -228,15 +228,15 @@ export default function RecibosPage() {
             <button
               type="button"
               onClick={volverAPisos}
-              className="text-sm font-medium text-green-600 hover:text-green-700"
+              className="text-sm font-medium text-secondary hover:text-secondary/80"
             >
               ← Volver a pisos
             </button>
           </div>
-          <h1 className="mb-8 text-center text-2xl font-semibold text-green-600">
+          <h1 className="mb-8 text-center text-2xl font-semibold text-foreground">
             Apartamentos
           </h1>
-          <p className="mb-6 text-center text-green-600">
+          <p className="mb-6 text-center text-secondary">
             Piso {pisoSeleccionado ?? ""}
           </p>
           <ApartamentosGrid onSelectApartamento={handleSelectApartamento} />
@@ -249,53 +249,53 @@ export default function RecibosPage() {
             <button
               type="button"
               onClick={volverAApartamentos}
-              className="text-sm font-medium text-green-600 hover:text-green-700"
+              className="text-sm font-medium text-secondary hover:text-secondary/80"
             >
               ← Volver a apartamentos
             </button>
           </div>
-          <h1 className="mb-2 text-center text-2xl font-semibold text-green-600">
+          <h1 className="mb-2 text-center text-2xl font-semibold text-foreground">
             Recibos por mes
           </h1>
-          <p className="mb-8 text-center text-green-600">
+          <p className="mb-8 text-center text-secondary">
             Piso {pisoSeleccionado ?? ""} · Apartamento{" "}
             {apartamentoSeleccionado ?? ""}
           </p>
 
           {cargando && (
-            <p className="py-8 text-center text-slate-500">
+            <p className="py-8 text-center text-muted-foreground">
               Cargando datos…
             </p>
           )}
           {error && (
-            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+            <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
               {error}
             </p>
           )}
           {!cargando && !error && recibosPendientes.length === 0 && pagos.length === 0 && (
-            <div className="mb-8 rounded-2xl border-2 border-green-200 bg-green-50/80 p-6 text-center">
-              <p className="text-lg font-semibold text-green-800">Estás al día</p>
-              <p className="mt-1 text-sm text-green-700">No tienes recibos pendientes ni historial de pagos en este apartamento.</p>
+            <div className="mb-8 rounded-2xl border-2 border-primary/30 bg-primary/10 p-6 text-center">
+              <p className="text-lg font-semibold text-foreground">Estás al día</p>
+              <p className="mt-1 text-sm text-muted-foreground">No tienes recibos pendientes ni historial de pagos en este apartamento.</p>
             </div>
           )}
           {!cargando && !error && recibosPendientes.length === 0 && pagos.length > 0 && (
-            <div className="mb-8 rounded-2xl border-2 border-green-200 bg-green-50/80 p-6 text-center">
-              <p className="text-lg font-semibold text-green-800">Estás al día</p>
-              <p className="mt-1 text-sm text-green-700">No tienes recibos pendientes. Tus pagos anteriores aparecen abajo.</p>
+            <div className="mb-8 rounded-2xl border-2 border-primary/30 bg-primary/10 p-6 text-center">
+              <p className="text-lg font-semibold text-foreground">Estás al día</p>
+              <p className="mt-1 text-sm text-muted-foreground">No tienes recibos pendientes. Tus pagos anteriores aparecen abajo.</p>
             </div>
           )}
           {!cargando && !error && abono > 0 && (
-            <article className="mb-6 overflow-hidden rounded-2xl border-2 border-emerald-200 bg-emerald-50/80 shadow-sm">
+            <article className="mb-6 overflow-hidden rounded-2xl border-2 border-secondary/30 bg-secondary/10 shadow-sm">
               <div className="flex items-center gap-4 p-4">
-                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-white">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-secondary text-secondary-foreground">
                   <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </span>
                 <div>
-                  <h3 className="text-base font-semibold text-emerald-900">Abono a tu favor</h3>
-                  <p className="text-2xl font-bold text-emerald-800">${abono.toFixed(2)} USD</p>
-                  <p className="mt-1 text-xs text-emerald-700">
+                  <h3 className="text-base font-semibold text-foreground">Abono a tu favor</h3>
+                  <p className="text-2xl font-bold text-secondary">${abono.toFixed(2)} USD</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
                     Se aplicará automáticamente a tus deudas cuando realices un pago.
                   </p>
                 </div>
@@ -305,7 +305,7 @@ export default function RecibosPage() {
           {!cargando && !error && recibosPendientes.length > 0 && (
             <div className="mb-8 space-y-5">
               {abono > 0 && (
-                <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 px-4 py-3 text-sm text-emerald-800">
+                <div className="rounded-lg border border-border bg-secondary/10 px-4 py-3 text-sm text-foreground">
                   <p>
                     <span className="font-medium">Total deuda:</span> $
                     {recibosPendientes
@@ -327,10 +327,10 @@ export default function RecibosPage() {
                 return (
                   <article
                     key={recibo._id}
-                    className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+                    className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm"
                   >
                     <div className="flex items-start justify-between p-4 pb-0">
-                      <h3 className="text-base font-semibold text-slate-800">
+                      <h3 className="text-base font-semibold text-foreground">
                         Recibo de condominio
                       </h3>
                       <span
@@ -341,56 +341,56 @@ export default function RecibosPage() {
                     </div>
                     <div className="grid grid-cols-2 gap-x-4 gap-y-4 p-4">
                       <div className="flex items-start gap-3">
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-500 text-white">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                           <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                           </svg>
                         </span>
                         <div>
-                          <p className="text-xs text-slate-500">Piso</p>
-                          <p className="font-semibold text-slate-800">{recibo.piso}</p>
+                          <p className="text-xs text-muted-foreground">Piso</p>
+                          <p className="font-semibold text-foreground">{recibo.piso}</p>
                         </div>
                       </div>
                       <div className="flex items-start gap-3">
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-purple-500 text-white">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary text-secondary-foreground">
                           <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
                           </svg>
                         </span>
                         <div>
-                          <p className="text-xs text-slate-500">Apartamento</p>
-                          <p className="font-semibold text-slate-800">{recibo.apartamento}</p>
+                          <p className="text-xs text-muted-foreground">Apartamento</p>
+                          <p className="font-semibold text-foreground">{recibo.apartamento}</p>
                         </div>
                       </div>
                       <div className="flex items-start gap-3">
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500 text-white">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground">
                           <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                           </svg>
                         </span>
                         <div>
-                          <p className="text-xs text-slate-500">Mes</p>
-                          <p className="font-semibold text-slate-800">
+                          <p className="text-xs text-muted-foreground">Mes</p>
+                          <p className="font-semibold text-foreground">
                             {formatearMesesConAño(recibo.meses, recibo.fechaReportada)}
                           </p>
                         </div>
                       </div>
                       <div className="flex items-start gap-3">
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500 text-white">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary text-secondary-foreground">
                           <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
                         </span>
                         <div>
-                          <p className="text-xs text-slate-500">
+                          <p className="text-xs text-muted-foreground">
                             {mostrarMontoPagado ? "Monto pagado" : "Monto"}
                           </p>
-                          <p className="font-semibold text-slate-800">
+                          <p className="font-semibold text-foreground">
                             {mostrarMontoPagado
                               ? `${montoPagado.toFixed(2)} USD`
                               : `${recibo.montoUsd.toFixed(2)} USD`}
                             {mostrarMontoPagado && recibo.montoUsd > montoPagado && (
-                              <span className="ml-1 text-sm font-normal text-slate-500">
+                              <span className="ml-1 text-sm font-normal text-muted-foreground">
                                 (pend. {(recibo.montoUsd - montoPagado).toFixed(2)})
                               </span>
                             )}
@@ -398,14 +398,14 @@ export default function RecibosPage() {
                         </div>
                       </div>
                       <div className="col-span-2 flex items-start gap-3">
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500 text-white">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground">
                           <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                           </svg>
                         </span>
                         <div>
-                          <p className="text-xs text-slate-500">Fecha reportada</p>
-                          <p className="font-semibold text-slate-800">
+                          <p className="text-xs text-muted-foreground">Fecha reportada</p>
+                          <p className="font-semibold text-foreground">
                             {formatearFecha(recibo.fechaReportada)}
                           </p>
                         </div>
@@ -416,7 +416,7 @@ export default function RecibosPage() {
                         href={getComprobanteUrl(recibo.facturaFileId)}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="mt-4 flex w-full items-center justify-center gap-2 rounded-b-2xl bg-slate-900 px-4 py-3 font-medium text-white transition-colors hover:bg-slate-800"
+                        className="mt-4 flex w-full items-center justify-center gap-2 rounded-b-2xl bg-foreground px-4 py-3 font-medium text-background transition-colors hover:opacity-90"
                       >
                         <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -424,7 +424,7 @@ export default function RecibosPage() {
                         Ver factura
                       </a>
                     ) : (
-                      <div className="mt-4 rounded-b-2xl border-t border-slate-100 px-4 py-3 text-center text-sm text-slate-500">
+                      <div className="mt-4 rounded-b-2xl border-t border-border px-4 py-3 text-center text-sm text-muted-foreground">
                         Sin factura adjunta
                       </div>
                     )}
@@ -435,13 +435,13 @@ export default function RecibosPage() {
           )}
           {!cargando && !error && pagos.length > 0 && (
             <div className="space-y-5">
-              <h2 className="text-lg font-semibold text-slate-800">
+              <h2 className="text-lg font-semibold text-foreground">
                 Pagos realizados
               </h2>
               {pagos.map((p) => (
                 <article
                   key={p._id}
-                  className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+                  className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm"
                 >
                   <div className="flex flex-wrap items-center gap-3 p-4">
                     <span
@@ -454,28 +454,28 @@ export default function RecibosPage() {
                       )}
                       {obtenerTextoEstado(p.estado)}
                     </span>
-                    <span className="text-sm text-slate-500">
+                    <span className="text-sm text-muted-foreground">
                       {obtenerDetalleEstadoPago(p.estado, formatearFecha(p.fechaPago))}
                     </span>
                   </div>
-                  <div className="grid grid-cols-2 gap-x-6 gap-y-4 border-t border-slate-100 p-4">
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-4 border-t border-border p-4">
                     <div className="flex items-start gap-3">
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
                         <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
                       </span>
                       <div>
-                        <p className="text-xs text-slate-500">Mes</p>
-                        <p className="font-semibold text-slate-800 leading-tight">
+                        <p className="text-xs text-muted-foreground">Mes</p>
+                        <p className="font-semibold text-foreground leading-tight">
                           {formatearMeses(p.meses)}
                         </p>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
                       <div>
-                        <p className="text-xs text-slate-500">Fecha Pago</p>
-                        <p className="font-semibold text-slate-800">
+                        <p className="text-xs text-muted-foreground">Fecha Pago</p>
+                        <p className="font-semibold text-foreground">
                           {formatearFecha(p.fechaPago)}
                         </p>
                       </div>
@@ -489,8 +489,8 @@ export default function RecibosPage() {
             !error &&
             recibosPendientes.length === 0 &&
             pagos.length === 0 && (
-              <div className="rounded-2xl border-2 border-dashed border-green-200 bg-green-50/80 px-6 py-12 text-center">
-                <p className="text-slate-700">
+              <div className="rounded-2xl border-2 border-dashed border-border bg-muted/50 px-6 py-12 text-center">
+                <p className="text-muted-foreground">
                   No hay recibos pendientes ni pagos registrados para este
                   apartamento.
                 </p>

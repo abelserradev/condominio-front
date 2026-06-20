@@ -15,11 +15,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Condominio Residenciales",
-  description: "Gestión de recibos y pagos del condominio",
+  title: "URBIX",
+  description: "El sistema operativo de tu comunidad.",
   icons: {
-    icon: "/edificio.png"
-  }
+    icon: "/logo_condominio.webp",
+  },
 };
 
 export default function RootLayout({
@@ -34,7 +34,7 @@ export default function RootLayout({
       >
         <Header />
         <AdminRedirectGuard>
-          <main className="min-h-[calc(100vh-4rem)] bg-white">{children}</main>
+          <main className="min-h-[calc(100vh-4rem)] bg-background">{children}</main>
         </AdminRedirectGuard>
       </body>
     </html>

@@ -15,7 +15,7 @@ export default function AdminLayout({
   }
 
   return (
-    <div className="relative flex min-h-[calc(100vh-4rem)] bg-slate-50">
+      <div className="relative flex min-h-[calc(100vh-4rem)] bg-muted">
       <AdminSidebar
         abierto={sidebarAbierto}
         onCerrar={() => setSidebarAbierto(false)}
@@ -27,7 +27,7 @@ export default function AdminLayout({
       <button
         type="button"
         onClick={() => setSidebarAbierto(true)}
-        className="fixed bottom-6 left-6 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-[#5b21b6] text-white shadow-lg transition-colors hover:bg-[#6d28d9] focus:outline-none focus:ring-2 focus:ring-[#7c3aed] focus:ring-offset-2 md:hidden"
+        className="fixed bottom-6 left-6 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-secondary text-secondary-foreground shadow-lg transition-colors hover:bg-secondary/90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 md:hidden"
         aria-label="Abrir menú"
       >
         <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

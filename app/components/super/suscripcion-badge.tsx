@@ -1,12 +1,12 @@
 const ESTADOS: Record<string, string> = {
-  trial: "bg-yellow-100 text-yellow-800",
-  activo: "bg-green-100 text-green-800",
-  vencido: "bg-red-100 text-red-800",
-  suspendido: "bg-gray-100 text-gray-800",
+  trial: "bg-accent/20 text-accent-foreground",
+  activo: "bg-primary/20 text-foreground",
+  vencido: "bg-destructive/10 text-destructive",
+  suspendido: "bg-muted text-muted-foreground",
 };
 
-export function SuscripcionBadge({ estado }: { estado: string }) {
-  const cls = ESTADOS[estado] ?? "bg-slate-100 text-slate-700";
+export function SuscripcionBadge({ estado }: Readonly<{ estado: string }>) {
+  const cls = ESTADOS[estado] ?? "bg-muted text-muted-foreground";
   const label = estado.charAt(0).toUpperCase() + estado.slice(1);
   return (
     <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${cls}`}>

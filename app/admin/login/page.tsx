@@ -1,9 +1,39 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type SubmitEvent } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { login, type LoginResponse } from "@/lib/api";
+
+const DESTINOS_POR_ROL: Record<string, string> = {
+  superadmin: "/super/edificios",
+  admin: "/admin/inicio",
+  propietario: "/mi-apartamento",
+  inquilino: "/mi-apartamento",
+};
+
+function guardarSesion(data: LoginResponse): void {
+  if (globalThis.window === undefined) return;
+  localStorage.setItem("admin_token", data.access_token);
+  localStorage.setItem("user_rol", data.rol ?? "admin");
+  if (data.edificio) localStorage.setItem("user_edificio", data.edificio);
+  if (data.piso != null) localStorage.setItem("user_piso", String(data.piso));
+  if (data.apartamento != null) localStorage.setItem("user_apartamento", String(data.apartamento));
+  if (data.idUnico) localStorage.setItem("user_id_unico", data.idUnico);
+  globalThis.window.dispatchEvent(new Event("adminLogin"));
+}
+
+function obtenerMensajeError(err: unknown): string {
+  if (err instanceof TypeError && err.message.includes("fetch")) {
+    return "Error de conexión. Verifica que el backend esté corriendo en http://localhost:3001";
+  }
+  return err instanceof Error ? err.message : "Error al iniciar sesión";
+}
+
+function redirigirPorRol(router: ReturnType<typeof useRouter>, rol: string | undefined): void {
+  router.replace(DESTINOS_POR_ROL[rol ?? "admin"] ?? "/admin/inicio");
+}
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -12,56 +42,39 @@ export default function AdminLoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
     setLoading(true);
     try {
       const data: LoginResponse = await login(usuario.trim(), contraseña);
-      if (typeof window !== "undefined") {
-        localStorage.setItem("admin_token", data.access_token);
-        localStorage.setItem("user_rol", data.rol ?? "admin");
-        if (data.edificio) localStorage.setItem("user_edificio", data.edificio);
-        if (data.piso != null) localStorage.setItem("user_piso", String(data.piso));
-        if (data.apartamento != null) localStorage.setItem("user_apartamento", String(data.apartamento));
-        if (data.idUnico) localStorage.setItem("user_id_unico", data.idUnico);
-        window.dispatchEvent(new Event("adminLogin"));
-      }
-      const destinos: Record<string, string> = {
-        superadmin: "/super/edificios",
-        admin: "/admin/inicio",
-        propietario: "/mi-apartamento",
-        inquilino: "/mi-apartamento",
-      };
-      router.replace(destinos[data.rol ?? "admin"] ?? "/admin/inicio");
+      guardarSesion(data);
+      redirigirPorRol(router, data.rol);
     } catch (err) {
-      if (err instanceof TypeError && err.message.includes("fetch")) {
-        setError("Error de conexión. Verifica que el backend esté corriendo en http://localhost:3001");
-      } else {
-        setError(err instanceof Error ? err.message : "Error al iniciar sesión");
-      }
+      setError(obtenerMensajeError(err));
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center bg-white px-4 py-12">
-      <div
-        className="w-[320px] rounded-lg p-6 text-center"
-        style={{ background: "#2a2b38" }}
-      >
-        <h4 className="mb-4 text-2xl font-medium" style={{ color: "#2a2b38" }}>
+    <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center bg-background px-4 py-12">
+      <div className="w-[320px] rounded-xl bg-foreground p-7 text-center shadow-xl">
+        <Image
+          src="/logo_condominio.webp"
+          alt="URBIX"
+          width={120}
+          height={40}
+          className="mx-auto mb-5 h-10 w-auto object-contain"
+          priority
+        />
+        <h4 className="mb-5 text-xl font-semibold text-background">
           Iniciar sesión
         </h4>
-        <form onSubmit={handleSubmit}>
-          <div
-            className="mb-3 flex items-center gap-2 rounded px-4 py-3"
-            style={{ backgroundColor: "#1f2029" }}
-          >
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div className="flex items-center gap-2 rounded-lg bg-background/10 px-4 py-3">
             <svg
-              className="h-5 w-5 shrink-0"
-              style={{ fill: "#ffeba7" }}
+              className="h-5 w-5 shrink-0 fill-accent"
               viewBox="0 0 512 512"
               xmlns="http://www.w3.org/2000/svg"
             >
@@ -76,17 +89,12 @@ export default function AdminLoginPage() {
               value={usuario}
               onChange={(e) => setUsuario(e.target.value)}
               required
-              className="w-full border-none bg-transparent outline-none"
-              style={{ color: "#d3d3d3" }}
+              className="w-full border-none bg-transparent text-background/90 outline-none placeholder:text-background/40"
             />
           </div>
-          <div
-            className="mb-4 flex items-center gap-2 rounded px-4 py-3"
-            style={{ backgroundColor: "#1f2029" }}
-          >
+          <div className="flex items-center gap-2 rounded-lg bg-background/10 px-4 py-3">
             <svg
-              className="h-5 w-5 shrink-0"
-              style={{ fill: "#ffeba7" }}
+              className="h-5 w-5 shrink-0 fill-accent"
               viewBox="0 0 576 512"
               xmlns="http://www.w3.org/2000/svg"
             >
@@ -101,29 +109,22 @@ export default function AdminLoginPage() {
               value={contraseña}
               onChange={(e) => setContraseña(e.target.value)}
               required
-              className="w-full border-none bg-transparent outline-none"
-              style={{ color: "#d3d3d3" }}
+              className="w-full border-none bg-transparent text-background/90 outline-none placeholder:text-background/40"
             />
           </div>
           {error && (
-            <p className="mb-3 text-sm text-red-400">{error}</p>
+            <p className="text-sm text-destructive-foreground bg-destructive/80 rounded-lg px-3 py-2">{error}</p>
           )}
           <button
             type="submit"
             disabled={loading}
-            className="mb-2 w-full rounded py-2.5 text-sm font-bold uppercase tracking-wide transition-all duration-300 hover:opacity-90 disabled:opacity-60"
-            style={{
-              backgroundColor: "#ffeba7",
-              color: "#5e6681",
-              boxShadow: "0 8px 24px 0 rgb(255 235 167 / 20%)",
-            }}
+            className="w-full rounded-lg bg-accent py-2.5 text-sm font-bold uppercase tracking-wide text-accent-foreground shadow-sm transition-all hover:opacity-90 disabled:opacity-60"
           >
             {loading ? "Entrando…" : "Entrar"}
           </button>
           <Link
             href="/"
-            className="block text-sm transition-colors duration-300 hover:opacity-90"
-            style={{ color: "#f5f5f5" }}
+            className="block text-sm text-background/70 transition-colors hover:text-background"
           >
             Volver al inicio
           </Link>

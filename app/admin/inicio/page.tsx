@@ -47,6 +47,23 @@ function esDeudaCondominio(tipoDeuda: string): boolean {
   return t.includes("condominio") || t === "pendiente" || t === "factura";
 }
 
+function mensajeSuscripcion(
+  estado: string,
+  dias: number,
+): string {
+  if (estado === "vencido" || estado === "suspendido") {
+    return "Tu suscripción está vencida o suspendida. Renueva para seguir gestionando el edificio.";
+  }
+  if (dias <= 0) {
+    return "Tu suscripción vence hoy.";
+  }
+  return `Tu suscripción vence en ${dias} día${dias === 1 ? "" : "s"}.`;
+}
+
+function formatearMeses(meses: number[]): string {
+  return meses.map((m) => MESES[m - 1]).join(", ");
+}
+
 function esDeudaCuotasEspeciales(tipoDeuda: string): boolean {
   const t = tipoDeuda.toLowerCase();
   return t.includes("cuota") || t.includes("especial") || t.includes("acumulada") || t.includes("reparacion");
@@ -193,10 +210,6 @@ export default function AdminInicioPage() {
     }
   }
 
-  function formatearMeses(meses: number[]): string {
-    return meses.map((m) => MESES[m - 1]).join(", ");
-  }
-
   // Formatear fecha correctamente evitando problemas de zona horaria
   const formatearFecha = (fecha: string | Date): string => {
     if (!fecha) return "N/A";
@@ -217,7 +230,7 @@ export default function AdminInicioPage() {
   if (cargando) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <p className="text-lg text-slate-600">Cargando...</p>
+        <p className="text-lg text-muted-foreground">Cargando...</p>
       </div>
     );
   }
@@ -225,36 +238,32 @@ export default function AdminInicioPage() {
   return (
     <div className="flex-1 pb-20 md:pb-0">
       {/* Header púrpura con título y botón */}
-      <header className="flex flex-wrap items-center justify-between gap-3 bg-[#5b21b6] px-4 py-4 md:px-6 md:py-5">
-        <h1 className="text-lg font-bold leading-tight text-white md:text-2xl">
+      <header className="flex flex-wrap items-center justify-between gap-3 bg-secondary px-4 py-4 md:px-6 md:py-5">
+        <h1 className="text-lg font-bold leading-tight text-secondary-foreground md:text-2xl">
           Reportes de Pagos Pendientes
         </h1>
         <button
           type="button"
-          className="rounded-xl bg-[#7c3aed] px-4 py-2.5 text-sm font-medium text-white shadow transition-colors hover:bg-[#6d28d9]"
+          className="rounded-xl bg-secondary/80 px-4 py-2.5 text-sm font-medium text-secondary-foreground shadow transition-colors hover:bg-secondary/70"
         >
           Factura condominio
         </button>
       </header>
 
       <div className="p-4 md:p-6">
-        {suscripcion && suscripcion.suscripcionHasta && (() => {
+        {suscripcion?.suscripcionHasta && (() => {
           const dias = diasHasta(suscripcion.suscripcionHasta);
           if (dias > 7 && suscripcion.estadoSuscripcion === "activo") return null;
           return (
-            <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
-              <p className="text-sm text-amber-900">
-                {suscripcion.estadoSuscripcion === "vencido" || suscripcion.estadoSuscripcion === "suspendido"
-                  ? "Tu suscripción está vencida o suspendida. Renueva para seguir gestionando el edificio."
-                  : dias <= 0
-                    ? "Tu suscripción vence hoy."
-                    : `Tu suscripción vence en ${dias} día${dias !== 1 ? "s" : ""}.`}
+            <div className="mb-6 rounded-lg border border-accent/40 bg-accent/10 px-4 py-3">
+              <p className="text-sm text-accent-foreground">
+                {mensajeSuscripcion(suscripcion.estadoSuscripcion, dias)}
               </p>
               {suscripcion.datosContactoPago && (
                 <button
                   type="button"
                   onClick={() => setModalPagoAbierto(true)}
-                  className="mt-1 text-sm font-medium text-amber-800 underline"
+                  className="mt-1 text-sm font-medium text-accent-foreground underline"
                 >
                   Ver instrucciones de pago
                 </button>
@@ -264,61 +273,61 @@ export default function AdminInicioPage() {
         })()}
         {/* Tarjetas de métricas */}
         <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 md:mb-8">
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <div className="mb-3 flex items-start justify-between">
-              <span className="text-sm font-medium text-slate-600">
+              <span className="text-sm font-medium text-muted-foreground">
                 Pagos registrados por los propietarios
               </span>
-              <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#ede9fe]">
-                <svg className="h-5 w-5 text-[#5b21b6]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/20">
+                <svg className="h-5 w-5 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
               </span>
             </div>
-            <p className="text-2xl font-bold text-slate-800">{metricas.pagosRegistrados}</p>
-            <p className="mt-1 text-xs text-slate-500">Total reportados</p>
+            <p className="text-2xl font-bold text-foreground">{metricas.pagosRegistrados}</p>
+            <p className="mt-1 text-xs text-muted-foreground">Total reportados</p>
           </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <div className="mb-3 flex items-start justify-between">
-              <span className="text-sm font-medium text-slate-600">
+              <span className="text-sm font-medium text-muted-foreground">
                 Apartamentos con deudas
               </span>
-              <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#dbeafe]">
-                <svg className="h-5 w-5 text-[#1d4ed8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary/20">
+                <svg className="h-5 w-5 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
                 </svg>
               </span>
             </div>
-            <p className="text-2xl font-bold text-slate-800">{metricas.apartamentosConDeudas}</p>
-            <p className="mt-1 text-xs text-slate-500">Morosos (condominio o cuotas especiales)</p>
+            <p className="text-2xl font-bold text-foreground">{metricas.apartamentosConDeudas}</p>
+            <p className="mt-1 text-xs text-muted-foreground">Morosos (condominio o cuotas especiales)</p>
           </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <div className="mb-3 flex items-start justify-between">
-              <span className="text-sm font-medium text-slate-600">
+              <span className="text-sm font-medium text-muted-foreground">
                 Apartamentos sin deudas activas
               </span>
-              <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#fce7f3]">
-                <svg className="h-5 w-5 text-[#be185d]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-destructive/10">
+                <svg className="h-5 w-5 text-destructive" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
               </span>
             </div>
-            <p className="text-2xl font-bold text-slate-800">{metricas.apartamentosSinDeudasActivas}</p>
-            <p className="mt-1 text-xs text-slate-500">Al día</p>
+            <p className="text-2xl font-bold text-foreground">{metricas.apartamentosSinDeudasActivas}</p>
+            <p className="mt-1 text-xs text-muted-foreground">Al día</p>
           </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <div className="mb-3 flex items-start justify-between">
-              <span className="text-sm font-medium text-slate-600">
+              <span className="text-sm font-medium text-muted-foreground">
                 Deudas cuotas especiales
               </span>
-              <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#d1fae5]">
-                <svg className="h-5 w-5 text-[#047857]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/20">
+                <svg className="h-5 w-5 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
               </span>
             </div>
-            <p className="text-2xl font-bold text-slate-800">{metricas.apartamentosSoloDeudaCuotasEspeciales}</p>
-            <p className="mt-1 text-xs text-slate-500">Solo cuotas especiales</p>
+            <p className="text-2xl font-bold text-foreground">{metricas.apartamentosSoloDeudaCuotasEspeciales}</p>
+            <p className="mt-1 text-xs text-muted-foreground">Solo cuotas especiales</p>
           </div>
         </div>
       </div>
@@ -326,97 +335,97 @@ export default function AdminInicioPage() {
       {/* Contenido principal */}
       <main className="flex-1 p-4 md:p-6">
         <div className="mb-6 flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center md:justify-between">
-          <h2 className="text-xl font-bold text-slate-800 md:text-2xl">
+          <h2 className="text-xl font-bold text-foreground md:text-2xl">
             Reportes de Pagos Pendientes
           </h2>
           <div className="text-left md:text-right">
-            <span className="text-sm font-medium text-slate-600">Tasa BCV del día </span>
-            <span className="ml-2 text-base font-semibold text-green-700 md:text-lg">
+            <span className="text-sm font-medium text-muted-foreground">Tasa BCV del día </span>
+            <span className="ml-2 text-base font-semibold text-secondary md:text-lg">
               {tasaBcv == null ? "…" : `${tasaBcv.toLocaleString("es-VE")} Bs/USD`}
             </span>
           </div>
         </div>
 
         {error && (
-          <div className="mb-4 rounded-lg bg-red-100 p-3 text-red-700">
+          <div className="mb-4 rounded-lg bg-destructive/10 p-3 text-destructive">
             {error}
           </div>
         )}
 
-        <h2 className="mb-4 text-lg font-semibold text-slate-800">Pagos pendientes de verificar</h2>
+        <h2 className="mb-4 text-lg font-semibold text-foreground">Pagos pendientes de verificar</h2>
         {pagosPendientes.length === 0 ? (
-          <div className="rounded-xl border border-slate-200 bg-slate-50 py-12 text-center text-slate-500">
+          <div className="rounded-xl border border-border bg-muted py-12 text-center text-muted-foreground">
             No hay pagos pendientes de verificar
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {pagosPendientes.map((pago) => (
-              <div
+              <button
                 key={pago._id}
+                type="button"
                 onClick={() => handleClickPago(pago)}
-                className="cursor-pointer rounded-lg border border-slate-200 bg-white p-4 shadow transition-shadow hover:shadow-lg"
+                className="cursor-pointer rounded-lg border border-border bg-card p-4 text-left shadow transition-shadow hover:shadow-lg"
               >
                 <div className="mb-2 flex items-start justify-between">
                   <div>
-                    <h3 className="font-semibold text-slate-800">
+                    <h3 className="font-semibold text-foreground">
                       Piso {pago.piso} - Apt {pago.apartamento}
                     </h3>
-                    <p className="text-sm text-slate-600">
+                    <p className="text-sm text-muted-foreground">
                       {formatearMeses(pago.meses)}
                     </p>
                   </div>
-                  <span className="rounded bg-green-100 px-2 py-1 text-xs text-green-800">
+                  <span className="rounded bg-primary/20 px-2 py-1 text-xs text-foreground">
                     Pendiente
                   </span>
                 </div>
                 <div className="mt-3">
-                  <p className="text-lg font-bold text-slate-800">
+                  <p className="text-lg font-bold text-foreground">
                     {formatearMonto(pago.montoUsd)}
                   </p>
-                  <p className="mt-1 text-xs text-slate-500">
+                  <p className="mt-1 text-xs text-muted-foreground">
                     {new Date(pago.fechaPago).toLocaleDateString("es-VE")}
                   </p>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         )}
 
         {/* Sección Pagos aceptados */}
-        <div className="mt-10 rounded-xl border border-slate-200 bg-white shadow-sm">
-          <h2 className="border-b border-slate-200 px-4 py-4 text-lg font-semibold text-slate-800 md:px-6">
+        <div className="mt-10 rounded-xl border border-border bg-card shadow-sm">
+          <h2 className="border-b border-border px-4 py-4 text-lg font-semibold text-foreground md:px-6">
             Pagos aceptados
           </h2>
-          {/* Cards en mobile */}
           <div className="space-y-3 p-4 md:hidden">
             {pagosAceptados.length === 0 ? (
-              <p className="py-8 text-center text-slate-500">No hay pagos aceptados</p>
+              <p className="py-8 text-center text-muted-foreground">No hay pagos aceptados</p>
             ) : (
               pagosAceptados.slice(0, 5).map((pago) => (
                 <div
                   key={pago._id}
-                  className="rounded-xl border border-slate-200 bg-slate-50/50 p-4"
+                  className="rounded-xl border border-border bg-muted/50 p-4"
                 >
                   <div className="mb-3 flex items-start justify-between">
-                    <span className="rounded bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-700">
+                    <span className="rounded bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
                       Condominio
                     </span>
-                    <span className="font-bold text-slate-800">{formatearMonto(pago.montoUsd)}</span>
+                    <span className="font-bold text-foreground">{formatearMonto(pago.montoUsd)}</span>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <div>
-                      <span className="text-slate-600">Piso: </span>
-                      <span className="font-medium text-slate-800">{pago.piso}</span>
+                      <span className="text-muted-foreground">Piso: </span>
+                      <span className="font-medium text-foreground">{pago.piso}</span>
                     </div>
                     <div>
-                      <span className="text-slate-600">Apartamento: </span>
-                      <span className="rounded bg-green-100 px-2 py-0.5 font-medium text-green-800">
+                      <span className="text-muted-foreground">Apartamento: </span>
+                      <span className="rounded bg-primary/20 px-2 py-0.5 font-medium text-foreground">
                         {pago.apartamento}
                       </span>
                     </div>
                     <div className="col-span-2">
-                      <span className="text-slate-600">Fecha de pago: </span>
-                      <span className="font-medium text-slate-800">
+                      <span className="text-muted-foreground">Fecha de pago: </span>
+                      <span className="font-medium text-foreground">
                         {formatearFecha(pago.fechaPago)}
                       </span>
                     </div>
@@ -425,11 +434,10 @@ export default function AdminInicioPage() {
               ))
             )}
           </div>
-          {/* Tabla en desktop */}
           <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[500px]">
               <thead>
-                <tr className="border-b border-slate-200 bg-slate-50 text-left text-sm font-medium text-slate-600">
+                <tr className="border-b border-border bg-muted text-left text-sm font-medium text-muted-foreground">
                   <th className="px-6 py-3">Tipo de deuda</th>
                   <th className="px-6 py-3">Piso</th>
                   <th className="px-6 py-3">Apartamento</th>
@@ -440,7 +448,7 @@ export default function AdminInicioPage() {
               <tbody>
                 {pagosAceptados.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center text-slate-500">
+                    <td colSpan={5} className="px-6 py-8 text-center text-muted-foreground">
                       No hay pagos aceptados
                     </td>
                   </tr>
@@ -448,21 +456,21 @@ export default function AdminInicioPage() {
                   pagosAceptados.slice(0, 5).map((pago) => (
                     <tr
                       key={pago._id}
-                      className="border-b border-slate-100 transition-colors hover:bg-slate-50"
+                      className="border-b border-border transition-colors hover:bg-muted/50"
                     >
                       <td className="px-6 py-4">
-                        <span className="text-slate-800">Condominio</span>
+                        <span className="text-foreground">Condominio</span>
                       </td>
-                      <td className="px-6 py-4 font-medium text-slate-800">{pago.piso}</td>
+                      <td className="px-6 py-4 font-medium text-foreground">{pago.piso}</td>
                       <td className="px-6 py-4">
-                        <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-800">
+                        <span className="rounded-full bg-primary/20 px-2.5 py-1 text-xs font-medium text-foreground">
                           {pago.apartamento}
                         </span>
                       </td>
-                      <td className="px-6 py-4 font-medium text-slate-800">
+                      <td className="px-6 py-4 font-medium text-foreground">
                         {formatearMonto(pago.montoUsd)}
                       </td>
-                      <td className="px-6 py-4 text-slate-600">
+                      <td className="px-6 py-4 text-muted-foreground">
                         {formatearFecha(pago.fechaPago)}
                       </td>
                     </tr>
@@ -471,10 +479,10 @@ export default function AdminInicioPage() {
               </tbody>
             </table>
           </div>
-          <div className="border-t border-slate-200 px-4 py-4 text-center md:px-6">
+          <div className="border-t border-border px-4 py-4 text-center md:px-6">
             <Link
               href="/admin/pagos-aceptados"
-              className="text-sm font-medium text-[#5b21b6] transition-colors hover:text-[#7c3aed] hover:underline"
+              className="text-sm font-medium text-secondary transition-colors hover:text-secondary/80 hover:underline"
             >
               Ver más pagos aceptados
             </Link>
@@ -485,15 +493,14 @@ export default function AdminInicioPage() {
       {/* Modal mejorado */}
       {pagoSeleccionado && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-          <div className="w-full max-w-3xl rounded-xl bg-white shadow-2xl">
-            {/* Header del modal */}
-            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-              <h2 className="text-2xl font-bold text-slate-800">
+          <div className="w-full max-w-3xl rounded-xl bg-card shadow-2xl">
+            <div className="flex items-center justify-between border-b border-border px-6 py-4">
+              <h2 className="text-2xl font-bold text-foreground">
                 Detalle del Pago
               </h2>
               <button
                 onClick={() => setPagoSeleccionado(null)}
-                className="rounded-lg p-1 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                className="rounded-lg p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 aria-label="Cerrar"
               >
                 <svg
@@ -515,68 +522,68 @@ export default function AdminInicioPage() {
             {/* Contenido del modal */}
             <div className="max-h-[70vh] overflow-y-auto px-6 py-6">
               <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                <div className="rounded-lg bg-slate-50 p-4">
-                  <label className="text-sm font-medium text-slate-600">
+                <div className="rounded-lg bg-muted p-4">
+                  <span className="text-sm font-medium text-muted-foreground">
                     Piso
-                  </label>
-                  <p className="mt-1 text-lg font-semibold text-slate-800">
+                  </span>
+                  <p className="mt-1 text-lg font-semibold text-foreground">
                     {pagoSeleccionado.piso}
                   </p>
                 </div>
-                <div className="rounded-lg bg-slate-50 p-4">
-                  <label className="text-sm font-medium text-slate-600">
+                <div className="rounded-lg bg-muted p-4">
+                  <span className="text-sm font-medium text-muted-foreground">
                     Apartamento
-                  </label>
-                  <p className="mt-1 text-lg font-semibold text-slate-800">
+                  </span>
+                  <p className="mt-1 text-lg font-semibold text-foreground">
                     {pagoSeleccionado.apartamento}
                   </p>
                 </div>
-                <div className="rounded-lg bg-slate-50 p-4 md:col-span-2">
-                  <label className="text-sm font-medium text-slate-600">
+                <div className="rounded-lg bg-muted p-4 md:col-span-2">
+                  <span className="text-sm font-medium text-muted-foreground">
                     Meses a cancelar
-                  </label>
-                  <p className="mt-1 text-lg text-slate-800">
+                  </span>
+                  <p className="mt-1 text-lg text-foreground">
                     {formatearMeses(pagoSeleccionado.meses)}
                   </p>
                 </div>
-                <div className="rounded-lg bg-slate-50 p-4">
-                  <label className="text-sm font-medium text-slate-600">
+                <div className="rounded-lg bg-muted p-4">
+                  <span className="text-sm font-medium text-muted-foreground">
                     Banco
-                  </label>
-                  <p className="mt-1 text-lg text-slate-800">
+                  </span>
+                  <p className="mt-1 text-lg text-foreground">
                     {pagoSeleccionado.banco}
                   </p>
                 </div>
-                <div className="rounded-lg bg-slate-50 p-4">
-                  <label className="text-sm font-medium text-slate-600">
+                <div className="rounded-lg bg-muted p-4">
+                  <span className="text-sm font-medium text-muted-foreground">
                     Fecha de pago
-                  </label>
-                  <p className="mt-1 text-lg text-slate-800">
+                  </span>
+                  <p className="mt-1 text-lg text-foreground">
                     {formatearFecha(pagoSeleccionado.fechaPago)}
                   </p>
                 </div>
-                <div className="rounded-lg bg-slate-50 p-4">
-                  <label className="text-sm font-medium text-slate-600">
+                <div className="rounded-lg bg-muted p-4">
+                  <span className="text-sm font-medium text-muted-foreground">
                     Número de comprobante
-                  </label>
-                  <p className="mt-1 text-lg text-slate-800">
+                  </span>
+                  <p className="mt-1 text-lg text-foreground">
                     {pagoSeleccionado.numeroComprobante}
                   </p>
                 </div>
-                <div className="rounded-lg bg-slate-50 p-4">
-                  <label className="text-sm font-medium text-slate-600">
+                <div className="rounded-lg bg-muted p-4">
+                  <span className="text-sm font-medium text-muted-foreground">
                     Monto (USD)
-                  </label>
-                  <p className="mt-1 text-xl font-bold text-green-600">
+                  </span>
+                  <p className="mt-1 text-xl font-bold text-secondary">
                     {formatearMonto(pagoSeleccionado.montoUsd)}
                   </p>
                 </div>
                 {pagoSeleccionado.montoBs && (
-                  <div className="rounded-lg bg-slate-50 p-4">
-                    <label className="text-sm font-medium text-slate-600">
+                  <div className="rounded-lg bg-muted p-4">
+                    <span className="text-sm font-medium text-muted-foreground">
                       Monto (BS)
-                    </label>
-                    <p className="mt-1 text-lg text-slate-800">
+                    </span>
+                    <p className="mt-1 text-lg text-foreground">
                       {new Intl.NumberFormat("es-VE", {
                         style: "currency",
                         currency: "VES",
@@ -585,21 +592,21 @@ export default function AdminInicioPage() {
                   </div>
                 )}
                 {pagoSeleccionado.tasaBcv && (
-                  <div className="rounded-lg bg-slate-50 p-4">
-                    <label className="text-sm font-medium text-slate-600">
+                  <div className="rounded-lg bg-muted p-4">
+                    <span className="text-sm font-medium text-muted-foreground">
                       Tasa BCV
-                    </label>
-                    <p className="mt-1 text-lg text-slate-800">
+                    </span>
+                    <p className="mt-1 text-lg text-foreground">
                       {pagoSeleccionado.tasaBcv}
                     </p>
                   </div>
                 )}
                 {pagoSeleccionado.comprobanteFileId && (
-                  <div className="rounded-lg bg-slate-50 p-4 md:col-span-2">
-                    <label className="mb-2 block text-sm font-medium text-slate-600">
+                  <div className="rounded-lg bg-muted p-4 md:col-span-2">
+                    <span className="mb-2 block text-sm font-medium text-muted-foreground">
                       Comprobante
-                    </label>
-                    <div className="mt-2 rounded-lg border border-slate-200 p-2">
+                    </span>
+                    <div className="mt-2 rounded-lg border border-border p-2">
                       <Image
                         src={getComprobanteUrl(
                           pagoSeleccionado.comprobanteFileId
@@ -616,20 +623,19 @@ export default function AdminInicioPage() {
               </div>
             </div>
 
-            {/* Footer del modal con botones */}
-            <div className="border-t border-slate-200 px-6 py-4">
+            <div className="border-t border-border px-6 py-4">
               <div className="flex gap-3">
                 <button
                   onClick={handleAceptar}
                   disabled={procesando}
-                  className="flex-1 rounded-lg bg-green-600 px-4 py-3 font-medium text-white transition-colors hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 rounded-lg bg-secondary px-4 py-3 font-medium text-secondary-foreground transition-colors hover:bg-secondary/90 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {procesando ? "Procesando..." : "✓ Aceptar"}
                 </button>
                 <button
                   onClick={handleRechazar}
                   disabled={procesando}
-                  className="flex-1 rounded-lg bg-red-600 px-4 py-3 font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 rounded-lg bg-destructive px-4 py-3 font-medium text-destructive-foreground transition-colors hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {procesando ? "Procesando..." : "✗ Rechazar"}
                 </button>
@@ -641,13 +647,13 @@ export default function AdminInicioPage() {
 
       {modalPagoAbierto && suscripcion?.datosContactoPago && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-            <h3 className="mb-3 text-lg font-semibold text-slate-800">Instrucciones de pago</h3>
-            <p className="whitespace-pre-wrap text-sm text-slate-700">{suscripcion.datosContactoPago}</p>
+          <div className="w-full max-w-md rounded-xl bg-card p-6 shadow-xl">
+            <h3 className="mb-3 text-lg font-semibold text-foreground">Instrucciones de pago</h3>
+            <p className="whitespace-pre-wrap text-sm text-muted-foreground">{suscripcion.datosContactoPago}</p>
             <button
               type="button"
               onClick={() => setModalPagoAbierto(false)}
-              className="mt-4 w-full rounded-lg bg-slate-800 py-2 text-sm text-white"
+              className="mt-4 w-full rounded-lg bg-secondary py-2 text-sm text-secondary-foreground"
             >
               Cerrar
             </button>
