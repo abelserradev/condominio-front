@@ -5,7 +5,7 @@ import { useState } from "react";
 type Props = {
   buildingId: string;
   onRenovado: () => void;
-  onRenovar: (id: string, dias: number, nota: string) => Promise<void>;
+  onRenovar: (id: string, dias: number, nota: string) => Promise<unknown>;
 };
 
 export function RenovarModal({ buildingId, onRenovado, onRenovar }: Props) {
