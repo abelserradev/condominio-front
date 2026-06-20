@@ -22,7 +22,7 @@ function groupByPiso(apartamentos: Apartment[]): Map<number, Apartment[]> {
     return map;
 }
 
-export function AdminSidebar({ abierto = false, onCerrar }: AdminSidebarProps) {
+export function AdminSidebar({ abierto = false, onCerrar }: Readonly<AdminSidebarProps>) {
     const router = useRouter();
     const [apartamentos, setApartamentos] = useState<Apartment[]>([]);
     const [cargando, setCargando] = useState(true);
@@ -33,7 +33,7 @@ export function AdminSidebar({ abierto = false, onCerrar }: AdminSidebarProps) {
         async function cargar() {
             try {
                 const list = await fetchApartments();
-                const ordenados = list.sort((a, b) => {
+                const ordenados = list.toSorted((a, b) => {
                     if (a.piso !== b.piso) return a.piso - b.piso;
                     return a.numero - b.numero;
                 });
@@ -74,32 +74,30 @@ export function AdminSidebar({ abierto = false, onCerrar }: AdminSidebarProps) {
       onCerrar?.();
     }
 
-    const asideClasses = `fixed left-0 top-16 z-30 flex h-[calc(100vh-4rem)] w-64 flex-col bg-slate-900 text-white shadow-xl transition-transform duration-300 ease-in-out
+    const asideClasses = `fixed left-0 top-16 z-30 flex h-[calc(100vh-4rem)] w-64 flex-col bg-sidebar text-sidebar-foreground shadow-xl transition-transform duration-300 ease-in-out
       max-md:z-50 max-md:top-16
       ${abierto ? "max-md:translate-x-0" : "max-md:-translate-x-full"}`;
 
     return (
       <>
         {abierto && (
-          <div
-            role="button"
-            tabIndex={0}
+          <button
+            type="button"
             onClick={onCerrar}
-            onKeyDown={(e) => e.key === "Escape" && onCerrar?.()}
             className="fixed inset-0 top-16 z-40 bg-black/50 md:hidden"
             aria-label="Cerrar menú"
           />
         )}
       <aside className={asideClasses}>
         <div className="flex flex-1 flex-col overflow-hidden">
-          <div className="flex shrink-0 items-center justify-between border-b border-slate-700 p-3">
-            <span className="text-sm font-semibold uppercase tracking-wider text-slate-400">
+          <div className="flex shrink-0 items-center justify-between border-b border-sidebar-border p-3">
+            <span className="text-sm font-semibold uppercase tracking-wider text-sidebar-foreground/60">
               Navegación
             </span>
             <button
               type="button"
               onClick={onCerrar}
-              className="rounded p-1.5 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white md:hidden"
+              className="rounded p-1.5 text-sidebar-foreground/60 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground md:hidden"
               aria-label="Cerrar menú"
             >
               <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -115,11 +113,11 @@ export function AdminSidebar({ abierto = false, onCerrar }: AdminSidebarProps) {
                 className="mb-2 flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left md:hidden"
                 aria-expanded={apartamentosExpandido}
               >
-                <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                <span className="text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/40">
                   Pisos y apartamentos
                 </span>
                 <svg
-                  className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${apartamentosExpandido ? "rotate-180" : ""}`}
+                  className={`h-4 w-4 shrink-0 text-sidebar-foreground/40 transition-transform ${apartamentosExpandido ? "rotate-180" : ""}`}
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -135,11 +133,11 @@ export function AdminSidebar({ abierto = false, onCerrar }: AdminSidebarProps) {
                     : "max-md:max-h-0 max-md:overflow-hidden"
                 }`}
               >
-                <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/40">
                   Pisos
                 </p>
                 {cargando ? (
-                  <p className="py-2 text-sm text-slate-400">Cargando...</p>
+                  <p className="py-2 text-sm text-sidebar-foreground/50">Cargando...</p>
                 ) : (
                   <ul className="space-y-0.5">
                     {pisosOrdenados.map((piso) => {
@@ -150,11 +148,11 @@ export function AdminSidebar({ abierto = false, onCerrar }: AdminSidebarProps) {
                           <button
                             type="button"
                             onClick={() => togglePiso(piso)}
-                            className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm text-white transition-colors hover:bg-slate-800"
+                            className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm text-sidebar-foreground transition-colors hover:bg-sidebar-accent"
                           >
                             <span className="font-medium">Piso {piso}</span>
                             <svg
-                              className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${expandido ? "rotate-180" : ""}`}
+                              className={`h-4 w-4 shrink-0 text-sidebar-foreground/40 transition-transform ${expandido ? "rotate-180" : ""}`}
                               fill="none"
                               stroke="currentColor"
                               viewBox="0 0 24 24"
@@ -163,13 +161,13 @@ export function AdminSidebar({ abierto = false, onCerrar }: AdminSidebarProps) {
                             </svg>
                           </button>
                           {expandido && (
-                            <ul className="ml-3 space-y-0.5 border-l border-slate-700 pl-2">
+                            <ul className="ml-3 space-y-0.5 border-l border-sidebar-border pl-2">
                               {apts.map((apt) => (
                                 <li key={apt._id}>
                                   <button
                                     type="button"
                                     onClick={() => irARecibos(apt.piso, apt.numero)}
-                                    className="block w-full rounded px-2 py-1.5 text-left text-sm text-slate-300 transition-colors hover:bg-slate-800 hover:text-white"
+                                    className="block w-full rounded px-2 py-1.5 text-left text-sm text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
                                   >
                                     Apartamento {apt.numero}
                                   </button>
@@ -183,25 +181,25 @@ export function AdminSidebar({ abierto = false, onCerrar }: AdminSidebarProps) {
                   </ul>
                 )}
               </div>
-              <div className="mt-4 border-t border-slate-700 pt-3 space-y-0.5">
+              <div className="mt-4 border-t border-sidebar-border pt-3 space-y-0.5">
                 <button
                   type="button"
                   onClick={irAPropietarios}
-                  className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm font-medium text-white transition-colors hover:bg-slate-800"
+                  className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent"
                 >
                   Propietarios
                 </button>
                 <button
                   type="button"
                   onClick={irAAvisos}
-                  className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm font-medium text-white transition-colors hover:bg-slate-800"
+                  className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent"
                 >
                   Avisos
                 </button>
                 <button
                   type="button"
                   onClick={irAResumen}
-                  className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm font-medium text-white transition-colors hover:bg-slate-800"
+                  className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent"
                 >
                   Resumen
                 </button>

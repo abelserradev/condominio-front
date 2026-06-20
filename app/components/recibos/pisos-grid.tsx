@@ -6,7 +6,7 @@ type PisosGridProps = {
 
 const total_pisos = 30;
 
-export function PisosGrid({ onSelectPiso}: PisosGridProps) {
+export function PisosGrid({ onSelectPiso}: Readonly<PisosGridProps>) {
     return (
         <div className="grid grid-cols-5 gap-3 sm:gap-4 ">
       {Array.from({ length: total_pisos }, (_, i) => i + 1).map((piso) => (
@@ -14,7 +14,7 @@ export function PisosGrid({ onSelectPiso}: PisosGridProps) {
           key={piso}
           type="button"
           onClick={() => onSelectPiso(piso)}
-          className="flex aspect-square items-center justify-center rounded-xl border-2 border-green-200 bg-green-50 text-lg font-semibold text-amber-600 shadow-sm transition-all hover:border-green-400 hover:bg-green-100 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-2 focus:ring-offset-white"        >
+          className="flex aspect-square items-center justify-center rounded-xl border-2 border-border bg-muted text-lg font-semibold text-foreground shadow-sm transition-all hover:border-primary hover:bg-primary/10 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"        >
           {piso}
         </button>
       ))}

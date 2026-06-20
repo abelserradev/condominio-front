@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type SubmitEvent } from "react";
 
 type Props = {
   buildingId: string;
@@ -8,19 +8,19 @@ type Props = {
   onRenovar: (id: string, dias: number, nota: string) => Promise<unknown>;
 };
 
-export function RenovarModal({ buildingId, onRenovado, onRenovar }: Props) {
+export function RenovarModal({ buildingId, onRenovado, onRenovar }: Readonly<Props>) {
   const [abierto, setAbierto] = useState(false);
   const [dias, setDias] = useState("365");
   const [nota, setNota] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
     setError(null);
     try {
-      await onRenovar(buildingId, parseInt(dias, 10), nota);
+      await onRenovar(buildingId, Number.parseInt(dias, 10), nota);
       setAbierto(false);
       onRenovado();
     } catch (err) {
@@ -35,7 +35,7 @@ export function RenovarModal({ buildingId, onRenovado, onRenovar }: Props) {
       <button
         type="button"
         onClick={() => setAbierto(true)}
-        className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+        className="rounded-lg bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground hover:bg-secondary/90"
       >
         Renovar suscripción
       </button>
@@ -44,15 +44,16 @@ export function RenovarModal({ buildingId, onRenovado, onRenovar }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-        <h3 className="mb-4 text-lg font-semibold text-slate-800">Renovar suscripción</h3>
+      <div className="w-full max-w-md rounded-xl bg-card p-6 shadow-xl">
+        <h3 className="mb-4 text-lg font-semibold text-foreground">Renovar suscripción</h3>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="mb-1 block text-sm text-slate-600">Días a agregar</label>
+            <label htmlFor="dias" className="mb-1 block text-sm text-muted-foreground">Días a agregar</label>
             <select
+              id="dias"
               value={dias}
               onChange={(e) => setDias(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              className="w-full rounded-lg border border-border px-3 py-2 bg-background text-foreground"
             >
               <option value="30">30 días (1 mes)</option>
               <option value="90">90 días (3 meses)</option>
@@ -61,28 +62,29 @@ export function RenovarModal({ buildingId, onRenovado, onRenovar }: Props) {
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-sm text-slate-600">Nota (opcional)</label>
+            <label htmlFor="nota" className="mb-1 block text-sm text-muted-foreground">Nota (opcional)</label>
             <input
+              id="nota"
               type="text"
               value={nota}
               onChange={(e) => setNota(e.target.value)}
               placeholder="Pago recibido por transferencia…"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              className="w-full rounded-lg border border-border px-3 py-2 bg-background text-foreground"
             />
           </div>
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p className="text-sm text-destructive">{error}</p>}
           <div className="flex gap-2">
             <button
               type="button"
               onClick={() => setAbierto(false)}
-              className="flex-1 rounded-lg border border-slate-300 py-2 text-sm"
+              className="flex-1 rounded-lg border border-border py-2 text-sm text-foreground"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 rounded-lg bg-green-600 py-2 text-sm font-medium text-white disabled:opacity-60"
+              className="flex-1 rounded-lg bg-secondary py-2 text-sm font-medium text-secondary-foreground disabled:opacity-60"
             >
               {loading ? "Guardando…" : "Confirmar renovación"}
             </button>
