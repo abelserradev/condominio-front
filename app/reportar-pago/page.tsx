@@ -15,6 +15,7 @@ import {
   type Bank,
   type Recibo,
 } from "@/lib/api";
+import { getDatosPropietario, esPropietarioLogueado } from "@/lib/hooks/useRequireRol";
 
 function normalizarFechaAISO(fechaRaw: string): string | null {
   const s = String(fechaRaw).trim();
@@ -98,6 +99,16 @@ export default function ReportarPagoPage() {
   const [advertenciaSobrePago, setAdvertenciaSobrePago] = useState<string | null>(null);
   const [abono, setAbono] = useState<number>(0);
   const ocrMontosAplicadosRef = useRef(false);
+  const [propietarioLogueado, setPropietarioLogueado] = useState(false);
+
+  useEffect(() => {
+    if (!esPropietarioLogueado()) return;
+    const datos = getDatosPropietario();
+    if (!datos) return;
+    setPropietarioLogueado(true);
+    setPiso(String(datos.piso));
+    setApartamento(String(datos.apartamento));
+  }, []);
 
   useEffect(() => {
     fetchBanks()
@@ -606,6 +617,13 @@ export default function ReportarPagoPage() {
           )}
         </div>
 
+        {propietarioLogueado ? (
+          <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+            Reportando pago para tu apartamento:{" "}
+            <strong>Piso {piso} · Apt {apartamento}</strong>
+          </div>
+        ) : (
+          <>
         <div>
           <label
             htmlFor="piso"
@@ -651,6 +669,8 @@ export default function ReportarPagoPage() {
             ))}
           </select>
         </div>
+          </>
+        )}
 
         <div>
           <span className="mb-2 block text-sm font-medium text-slate-700">

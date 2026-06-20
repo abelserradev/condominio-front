@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { login } from "@/lib/api";
+import { login, type LoginResponse } from "@/lib/api";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -17,12 +17,23 @@ export default function AdminLoginPage() {
     setError(null);
     setLoading(true);
     try {
-      const data = await login(usuario.trim(), contraseña);
+      const data: LoginResponse = await login(usuario.trim(), contraseña);
       if (typeof window !== "undefined") {
         localStorage.setItem("admin_token", data.access_token);
+        localStorage.setItem("user_rol", data.rol ?? "admin");
+        if (data.edificio) localStorage.setItem("user_edificio", data.edificio);
+        if (data.piso != null) localStorage.setItem("user_piso", String(data.piso));
+        if (data.apartamento != null) localStorage.setItem("user_apartamento", String(data.apartamento));
+        if (data.idUnico) localStorage.setItem("user_id_unico", data.idUnico);
         window.dispatchEvent(new Event("adminLogin"));
       }
-      router.replace("/admin/inicio");
+      const destinos: Record<string, string> = {
+        superadmin: "/super/edificios",
+        admin: "/admin/inicio",
+        propietario: "/mi-apartamento",
+        inquilino: "/mi-apartamento",
+      };
+      router.replace(destinos[data.rol ?? "admin"] ?? "/admin/inicio");
     } catch (err) {
       if (err instanceof TypeError && err.message.includes("fetch")) {
         setError("Error de conexión. Verifica que el backend esté corriendo en http://localhost:3001");

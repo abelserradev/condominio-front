@@ -5,6 +5,17 @@ const getBaseUrl = (): string => {
   return "http://localhost:3001";
 };
 
+/**
+ * Lee el slug del edificio actual desde la cookie que inyecta el middleware.
+ * Fallback al valor de entorno para desarrollo sin subdominio.
+ */
+function getBuildingSlug(): string {
+  const fallback = process.env.NEXT_PUBLIC_DEV_BUILDING_SLUG ?? "residencia-sofia";
+  if (typeof document === "undefined") return fallback;
+  const match = document.cookie.match(/(?:^|;\s*)building_slug=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : fallback;
+}
+
 function getAuthToken(): string | null {
   if (typeof window === "undefined") {
     return null;
@@ -21,6 +32,16 @@ function getAuthHeaders(): HeadersInit {
   const token = getAuthToken();
   return {
     "Content-Type": "application/json",
+    "x-building-slug": getBuildingSlug(),
+    ...(token && { Authorization: `Bearer ${token}` }),
+  };
+}
+
+// Headers base sin Content-Type (para requests con FormData)
+function getBaseHeaders(): HeadersInit {
+  const token = getAuthToken();
+  return {
+    "x-building-slug": getBuildingSlug(),
     ...(token && { Authorization: `Bearer ${token}` }),
   };
 }
@@ -29,6 +50,7 @@ export async function obtenerCsrfToken(): Promise<string> {
   const res = await fetch(`${getBaseUrl()}/csrf/token`, {
     method: "GET",
     credentials: "include",
+    // CSRF token es global — no necesita building context
   });
   if (!res.ok) throw new Error("No se pudo obtener el token CSRF");
   const data = (await res.json()) as { csrfToken: string };
@@ -49,6 +71,7 @@ export async function extractComprobante(file: File): Promise<ComprobanteExtract
   formData.append("comprobante", file);
   const res = await fetch(`${getBaseUrl()}/ocr/extract-receipt`, {
     method: "POST",
+    headers: { "x-building-slug": getBuildingSlug() },
     body: formData,
   });
   if (!res.ok) {
@@ -64,7 +87,11 @@ export async function extractComprobante(file: File): Promise<ComprobanteExtract
 export type Bank = { _id: string; nombre: string };
 
 export async function fetchBanks(): Promise<Bank[]> {
-  const res = await fetch(`${getBaseUrl()}/banks`);
+  // Bancos son globales (no dependen del edificio), pero enviamos el slug igualmente
+  // para que el backend pueda validar el contexto si en el futuro se necesita
+  const res = await fetch(`${getBaseUrl()}/banks`, {
+    headers: { "x-building-slug": getBuildingSlug() },
+  });
   if (!res.ok) throw new Error("Error al cargar bancos");
   return res.json();
 }
@@ -162,7 +189,10 @@ export async function fetchPaymentsByApartamento(
   });
   const res = await fetch(
     `${getBaseUrl()}/payments/public/por-apartamento?${params}`,
-    { cache: "no-store" }
+    {
+      cache: "no-store",
+      headers: { "x-building-slug": getBuildingSlug() },
+    }
   );
   if (!res.ok) return [];
   return res.json();
@@ -174,6 +204,7 @@ export async function postPayment(formData: FormData): Promise<Payment> {
     method: "POST",
     headers: {
       "X-CSRF-Token": csrfToken,
+      "x-building-slug": getBuildingSlug(),
     },
     body: formData,
     credentials: "include",
@@ -213,7 +244,47 @@ export function getComprobanteUrl(fileId: string): string {
   return `${getBaseUrl()}/files/${fileId}`;
 }
 
-export async function login(usuario: string, contraseña: string): Promise<{ access_token: string }> {
+export type LoginResponse = {
+  access_token: string;
+  rol: string;
+  edificio?: string;
+  buildingId?: string;
+  piso?: number;
+  apartamento?: number;
+  idUnico?: string;
+};
+
+export type BuildingSuscripcion = {
+  nombre: string;
+  slug: string;
+  estadoSuscripcion: string;
+  suscripcionHasta: string;
+  diasGracia: number;
+  datosContactoPago?: string;
+};
+
+export type SuperBuilding = {
+  _id: string;
+  slug: string;
+  nombre: string;
+  direccion?: string;
+  totalPisos: number;
+  apartamentosPorPiso: number;
+  activo: boolean;
+  estadoSuscripcion: string;
+  suscripcionHasta?: string;
+  diasGracia?: number;
+  datosContactoPago?: string;
+  historialRenovaciones?: Array<{
+    fecha: string;
+    renovadoPor: string;
+    diasAgregados: number;
+    nota?: string;
+  }>;
+  createdAt?: string;
+};
+
+export async function login(usuario: string, contraseña: string): Promise<LoginResponse> {
   const csrfToken = await obtenerCsrfToken();
   const res = await fetch(`${getBaseUrl()}/auth/login`, {
     method: "POST",
@@ -221,6 +292,8 @@ export async function login(usuario: string, contraseña: string): Promise<{ acc
       "Content-Type": "application/json",
       Accept: "application/json",
       "X-CSRF-Token": csrfToken,
+      // El slug le indica al backend en cuál edificio buscar al usuario
+      "x-building-slug": getBuildingSlug(),
     },
     body: JSON.stringify({ usuario: usuario.trim(), contraseña }),
     credentials: "include",
@@ -236,7 +309,7 @@ export async function login(usuario: string, contraseña: string): Promise<{ acc
     }
     throw new Error(msg);
   }
-  return res.json();
+  return res.json() as Promise<LoginResponse>;
 }
 
 export type Apartment = {
@@ -248,7 +321,9 @@ export type Apartment = {
 
 export async function fetchApartments(piso?: number): Promise<Apartment[]> {
   const params = piso != null ? `?piso=${piso}` : "";
-  const res = await fetch(`${getBaseUrl()}/apartments${params}`);
+  const res = await fetch(`${getBaseUrl()}/apartments${params}`, {
+    headers: { "x-building-slug": getBuildingSlug() },
+  });
   if (!res.ok) throw new Error("Error al cargar apartamentos");
   return res.json();
 }
@@ -263,6 +338,7 @@ export async function fetchAbono(piso: number, apartamento: number): Promise<num
     params.append("_t", String(Date.now()));
     const res = await fetch(`${getBaseUrl()}/administracion/public/abono?${params}`, {
       cache: "no-store",
+      headers: { "x-building-slug": getBuildingSlug() },
     });
     if (!res.ok) return 0;
     const data = (await res.json()) as { monto: number };
@@ -301,6 +377,7 @@ export async function fetchRecibos(
   if (apartamento != null) publicParams.append("apartamento", String(apartamento));
   const res = await fetch(`${getBaseUrl()}/administracion/public/pendientes?${publicParams}`, {
     cache: 'no-store',
+    headers: { "x-building-slug": getBuildingSlug() },
   });
   if (!res.ok) {
     throw new Error("Error al cargar recibos");
@@ -309,10 +386,9 @@ export async function fetchRecibos(
 }
 
 export async function postRecibo(formData: FormData): Promise<Recibo> {
-  const token = getAuthToken();
   const res = await fetch(`${getBaseUrl()}/administracion`, {
     method: "POST",
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    headers: getBaseHeaders(),
     body: formData,
   });
   if (!res.ok) {
@@ -342,7 +418,10 @@ export type Aviso = {
 
 export async function fetchAvisos(): Promise<Aviso[]> {
   try {
-    const res = await fetch(`${getBaseUrl()}/avisos`, { cache: "no-store" });
+    const res = await fetch(`${getBaseUrl()}/avisos`, {
+      cache: "no-store",
+      headers: { "x-building-slug": getBuildingSlug() },
+    });
     if (!res.ok) return [];
     const data = await res.json();
     return Array.isArray(data) ? data : [];
@@ -365,7 +444,10 @@ export function getOrCreateDeviceId(): string {
 
 export async function fetchUnreadAvisosCount(deviceId: string): Promise<number> {
   try {
-    const res = await fetch(`${getBaseUrl()}/avisos/unread-count?deviceId=${encodeURIComponent(deviceId)}`, { cache: "no-store" });
+    const res = await fetch(`${getBaseUrl()}/avisos/unread-count?deviceId=${encodeURIComponent(deviceId)}`, {
+      cache: "no-store",
+      headers: { "x-building-slug": getBuildingSlug() },
+    });
     if (!res.ok) return 0;
     const data = await res.json();
     return typeof data.count === "number" ? data.count : 0;
@@ -429,5 +511,227 @@ export async function deleteAviso(id: string): Promise<void> {
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error((err as { message?: string }).message ?? "Error al eliminar aviso");
+  }
+}
+
+export async function fetchMiSuscripcion(): Promise<BuildingSuscripcion> {
+  const res = await fetch(`${getBaseUrl()}/buildings/suscripcion`, {
+    headers: getAuthHeaders(),
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error("No se pudo cargar la suscripción del edificio");
+  return res.json();
+}
+
+export async function fetchSuperBuildings(): Promise<SuperBuilding[]> {
+  const res = await fetch(`${getBaseUrl()}/super/buildings`, {
+    headers: getAuthHeaders(),
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error("Error al cargar edificios");
+  return res.json();
+}
+
+export async function fetchSuperBuilding(id: string): Promise<SuperBuilding> {
+  const res = await fetch(`${getBaseUrl()}/super/buildings/${id}`, {
+    headers: getAuthHeaders(),
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error("Edificio no encontrado");
+  return res.json();
+}
+
+export async function renovarSuperBuilding(
+  id: string,
+  diasAgregados: number,
+  nota?: string,
+): Promise<SuperBuilding> {
+  const res = await fetch(`${getBaseUrl()}/super/buildings/${id}/renovar`, {
+    method: "PATCH",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ diasAgregados, nota }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { message?: string }).message ?? "Error al renovar");
+  }
+  return res.json();
+}
+
+export async function suspenderSuperBuilding(id: string): Promise<SuperBuilding> {
+  const res = await fetch(`${getBaseUrl()}/super/buildings/${id}/suspender`, {
+    method: "PATCH",
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { message?: string }).message ?? "Error al suspender");
+  }
+  return res.json();
+}
+
+export async function crearSuperBuilding(data: {
+  slug: string;
+  nombre: string;
+  totalPisos: number;
+  apartamentosPorPiso: number;
+  adminUsuario: string;
+  adminPassword: string;
+  direccion?: string;
+  datosContactoPago?: string;
+}): Promise<SuperBuilding> {
+  const res = await fetch(`${getBaseUrl()}/super/buildings`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { message?: string }).message ?? "Error al crear edificio");
+  }
+  return res.json();
+}
+
+export type RegisterBuildingResult = {
+  slug: string;
+  nombre: string;
+  portalUrl: string;
+  trialHasta: string;
+  buildingId: string;
+};
+
+/** Verifica disponibilidad de subdominio — no requiere contexto de edificio */
+export async function checkBuildingSlug(
+  slug: string,
+): Promise<{ disponible: boolean; motivo?: string }> {
+  const res = await fetch(
+    `${getBaseUrl()}/buildings/check-slug/${encodeURIComponent(slug.trim().toLowerCase())}`,
+    { cache: "no-store" },
+  );
+  if (!res.ok) throw new Error("No se pudo verificar el subdominio");
+  return res.json();
+}
+
+/** Registro público self-service (Fase 3) */
+export async function registerBuilding(data: {
+  slug: string;
+  nombre: string;
+  totalPisos: number;
+  apartamentosPorPiso: number;
+  adminUsuario: string;
+  adminPassword: string;
+  direccion?: string;
+}): Promise<RegisterBuildingResult> {
+  const csrfToken = await obtenerCsrfToken();
+  const res = await fetch(`${getBaseUrl()}/buildings/register`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      "X-CSRF-Token": csrfToken,
+    },
+    body: JSON.stringify(data),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const msg = (err as { message?: string | string[] }).message;
+    throw new Error(
+      Array.isArray(msg) ? msg.join(", ") : (msg ?? "Error al registrar edificio"),
+    );
+  }
+  return res.json();
+}
+
+export type Owner = {
+  _id: string;
+  nombre: string;
+  email: string;
+  piso: number;
+  apartamento: number;
+  idUnico: string;
+  rol: "propietario" | "inquilino";
+  activo: boolean;
+  createdAt?: string;
+};
+
+export async function fetchOwners(incluirInactivos = false): Promise<Owner[]> {
+  const q = incluirInactivos ? "?incluirInactivos=true" : "";
+  const res = await fetch(`${getBaseUrl()}/owners${q}`, {
+    headers: getAuthHeaders(),
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error("Error al cargar propietarios");
+  return res.json();
+}
+
+export async function createOwner(data: {
+  nombre: string;
+  email: string;
+  piso: number;
+  apartamento: number;
+  rol: "propietario" | "inquilino";
+  password: string;
+}): Promise<Owner> {
+  const res = await fetch(`${getBaseUrl()}/owners`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { message?: string }).message ?? "Error al crear propietario");
+  }
+  return res.json();
+}
+
+export async function updateOwner(
+  id: string,
+  data: Partial<{
+    nombre: string;
+    email: string;
+    piso: number;
+    apartamento: number;
+    rol: "propietario" | "inquilino";
+    activo: boolean;
+    password: string;
+  }>,
+): Promise<Owner> {
+  const res = await fetch(`${getBaseUrl()}/owners/${id}`, {
+    method: "PATCH",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { message?: string }).message ?? "Error al actualizar");
+  }
+  return res.json();
+}
+
+export async function deactivateOwner(id: string): Promise<Owner> {
+  const res = await fetch(`${getBaseUrl()}/owners/${id}`, {
+    method: "DELETE",
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { message?: string }).message ?? "Error al desactivar");
+  }
+  return res.json();
+}
+
+export async function changeMyPassword(
+  contraseñaActual: string,
+  contraseñaNueva: string,
+): Promise<void> {
+  const res = await fetch(`${getBaseUrl()}/owners/me/password`, {
+    method: "PATCH",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ contraseñaActual, contraseñaNueva }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { message?: string }).message ?? "No se pudo cambiar la contraseña");
   }
 }

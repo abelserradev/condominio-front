@@ -22,6 +22,11 @@ export function Header() {
   const pathname = usePathname();
   const [isAdmin, setIsAdmin] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [esPlataforma, setEsPlataforma] = useState(false);
+
+  useEffect(() => {
+    setEsPlataforma(document.cookie.includes("platform_mode=1"));
+  }, [pathname]);
 
   useEffect(() => {
     function verificarSesion() {
@@ -45,6 +50,8 @@ export function Header() {
 
   useEffect(() => {
     if (pathname?.startsWith("/admin")) return;
+    if (pathname === "/registro") return;
+    if (typeof document !== "undefined" && document.cookie.includes("platform_mode=1")) return;
 
     function cargarUnread() {
       const deviceId = getOrCreateDeviceId();
@@ -75,7 +82,8 @@ export function Header() {
     router.push("/");
   }
 
-  const esAdmin = pathname?.startsWith("/admin");
+  const esAdminRoute = pathname?.startsWith("/admin");
+  const esPlataformaUi = esPlataforma || pathname === "/registro";
 
   const logoIcon = (
     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-green-600 text-white sm:h-10 sm:w-10">
@@ -107,13 +115,13 @@ export function Header() {
   return (
     <header
       className={`sticky top-0 z-50 flex h-16 items-center justify-between px-4 py-3 backdrop-blur sm:px-6
-        ${esAdmin
+        ${esAdminRoute
           ? "max-md:bg-[#5b21b6] max-md:border-[#6d28d9] max-md:border-b md:border-slate-200/80 md:bg-white/95 md:supports-[backdrop-filter]:bg-white/80"
           : "border-b border-slate-200/80 bg-white/95 supports-[backdrop-filter]:bg-white/80"
         }`}
     >
       {/* Izquierda: marca / título (solo un bloque) */}
-      {esAdmin ? (
+      {esAdminRoute ? (
         <div className="flex items-center gap-3">
           {logoBuildforge}
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-white max-md:bg-white/20 md:bg-green-600">
@@ -125,6 +133,16 @@ export function Header() {
             Condominio Residencia Sofia
           </span>
         </div>
+      ) : esPlataformaUi ? (
+        <Link href="/" className="flex min-w-0 items-center gap-2 sm:gap-3">
+          {logoBuildforge}
+          <div className="min-w-0 flex flex-col justify-center leading-tight">
+            <span className="text-sm font-semibold tracking-tight text-slate-800 sm:text-base md:text-lg">
+              Condominio Platform
+            </span>
+            <span className="text-[10px] text-slate-500 sm:text-xs">Gestión multi-edificio</span>
+          </div>
+        </Link>
       ) : (
         <Link href="/" className="flex min-w-0 items-center gap-2 sm:gap-3">
           {logoBuildforge}
@@ -140,7 +158,7 @@ export function Header() {
   
       {/* Derecha: notificaciones + sesión (solo un bloque) */}
       <div className="flex items-center gap-3">
-        {!esAdmin && bellIcon}
+        {!esAdminRoute && !esPlataformaUi && bellIcon}
         {isAdmin ? (
           <button
             onClick={handleCerrarSesion}
@@ -148,6 +166,13 @@ export function Header() {
           >
             Cerrar sesión
           </button>
+        ) : esPlataformaUi ? (
+          <Link
+            href="/registro"
+            className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700"
+          >
+            Registrar edificio
+          </Link>
         ) : (
           <Link
             href="/admin/login"

@@ -69,6 +69,11 @@ export function AdminSidebar({ abierto = false, onCerrar }: AdminSidebarProps) {
       onCerrar?.();
     }
 
+    function irAPropietarios() {
+      router.push("/admin/propietarios");
+      onCerrar?.();
+    }
+
     const asideClasses = `fixed left-0 top-16 z-30 flex h-[calc(100vh-4rem)] w-64 flex-col bg-slate-900 text-white shadow-xl transition-transform duration-300 ease-in-out
       max-md:z-50 max-md:top-16
       ${abierto ? "max-md:translate-x-0" : "max-md:-translate-x-full"}`;
@@ -179,6 +184,13 @@ export function AdminSidebar({ abierto = false, onCerrar }: AdminSidebarProps) {
                 )}
               </div>
               <div className="mt-4 border-t border-slate-700 pt-3 space-y-0.5">
+                <button
+                  type="button"
+                  onClick={irAPropietarios}
+                  className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm font-medium text-white transition-colors hover:bg-slate-800"
+                >
+                  Propietarios
+                </button>
                 <button
                   type="button"
                   onClick={irAAvisos}

@@ -12,9 +12,12 @@ import {
   rechazarPago,
   getComprobanteUrl,
   fetchTasaBcv,
+  fetchMiSuscripcion,
   type Payment,
   type Recibo,
+  type BuildingSuscripcion,
 } from "@/lib/api";
+import { diasHasta } from "@/app/components/super/suscripcion-badge";
 
 const MESES = [
   "Enero",
@@ -53,6 +56,8 @@ export default function AdminInicioPage() {
   const [procesando, setProcesando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tasaBcv, setTasaBcv] = useState<number | null>(null);
+  const [suscripcion, setSuscripcion] = useState<BuildingSuscripcion | null>(null);
+  const [modalPagoAbierto, setModalPagoAbierto] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("admin_token");
@@ -61,6 +66,7 @@ export default function AdminInicioPage() {
       return;
     }
     cargarDatos();
+    fetchMiSuscripcion().then(setSuscripcion).catch(() => {});
   }, [router]);
 
   function esDeudaCondominio(tipoDeuda: string): boolean {
@@ -233,6 +239,30 @@ export default function AdminInicioPage() {
       </header>
 
       <div className="p-4 md:p-6">
+        {suscripcion && suscripcion.suscripcionHasta && (() => {
+          const dias = diasHasta(suscripcion.suscripcionHasta);
+          if (dias > 7 && suscripcion.estadoSuscripcion === "activo") return null;
+          return (
+            <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+              <p className="text-sm text-amber-900">
+                {suscripcion.estadoSuscripcion === "vencido" || suscripcion.estadoSuscripcion === "suspendido"
+                  ? "Tu suscripción está vencida o suspendida. Renueva para seguir gestionando el edificio."
+                  : dias <= 0
+                    ? "Tu suscripción vence hoy."
+                    : `Tu suscripción vence en ${dias} día${dias !== 1 ? "s" : ""}.`}
+              </p>
+              {suscripcion.datosContactoPago && (
+                <button
+                  type="button"
+                  onClick={() => setModalPagoAbierto(true)}
+                  className="mt-1 text-sm font-medium text-amber-800 underline"
+                >
+                  Ver instrucciones de pago
+                </button>
+              )}
+            </div>
+          );
+        })()}
         {/* Tarjetas de métricas */}
         <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 md:mb-8">
           <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -603,6 +633,22 @@ export default function AdminInicioPage() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {modalPagoAbierto && suscripcion?.datosContactoPago && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <h3 className="mb-3 text-lg font-semibold text-slate-800">Instrucciones de pago</h3>
+            <p className="whitespace-pre-wrap text-sm text-slate-700">{suscripcion.datosContactoPago}</p>
+            <button
+              type="button"
+              onClick={() => setModalPagoAbierto(false)}
+              className="mt-4 w-full rounded-lg bg-slate-800 py-2 text-sm text-white"
+            >
+              Cerrar
+            </button>
           </div>
         </div>
       )}

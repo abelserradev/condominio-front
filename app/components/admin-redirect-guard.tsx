@@ -6,8 +6,8 @@ import { useEffect } from "react";
 const ADMIN_INICIO = "/admin/inicio";
 
 /**
- * Si el usuario tiene sesión de admin y visita una ruta de propietario,
- * redirige a /admin/inicio para cargar directamente el panel admin.
+ * Solo el admin del edificio (rol "admin") se redirige al panel si visita rutas públicas.
+ * SuperAdmin usa /super/* y propietarios /mi-apartamento — no deben ser interceptados.
  */
 export function AdminRedirectGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -15,11 +15,19 @@ export function AdminRedirectGuard({ children }: { children: React.ReactNode }) 
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+
     const token = localStorage.getItem("admin_token");
-    if (!token) return;
+    const rol = localStorage.getItem("user_rol");
+
+    // Propietarios, inquilinos y superadmin gestionan sus propias rutas
+    if (!token || rol !== "admin") return;
+
     const esRutaAdmin = pathname?.startsWith("/admin");
     const esLogin = pathname === "/admin/login";
-    if (!esRutaAdmin || esLogin) {
+    const esRegistro = pathname === "/registro";
+    const esSuper = pathname?.startsWith("/super");
+
+    if ((!esRutaAdmin || esLogin) && !esRegistro && !esSuper) {
       router.replace(ADMIN_INICIO);
     }
   }, [pathname, router]);

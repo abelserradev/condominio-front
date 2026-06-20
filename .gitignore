@@ -22,7 +22,11 @@
 
 # misc
 .DS_Store
+Thumbs.db
 *.pem
+*.key
+*.p12
+*.pfx
 
 # debug
 npm-debug.log*
@@ -30,20 +34,34 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files - NUNCA subir al repositorio (contienen URLs, secretos)
+# env files — NUNCA subir (NEXT_PUBLIC_*, URLs prod, secretos)
 .env
 .env.*
 .env.local
+.env.development
 .env.development.local
+.env.test
 .env.test.local
+.env.production
 .env.production.local
+.env.staging
+.env.coolify
 
-# vercel
+# Credenciales sueltas
+credentials.json
+service-account*.json
+secrets/
+.secrets/
+
+# vercel / deploy
 .vercel
+.turbo
+.swc
 
 # typescript
 *.tsbuildinfo
 next-env.d.ts
 
-.cursor/*
+# Cursor / docs locales
+.cursor/
 DOCUMENTACION.md
