@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 export function useRequireRol(rolesPermitidos: string[]): string | null {
   const router = useRouter();
-  const [rol, setRol] = useState<string | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem("admin_token");
@@ -13,12 +12,13 @@ export function useRequireRol(rolesPermitidos: string[]): string | null {
 
     if (!token || !userRol || !rolesPermitidos.includes(userRol)) {
       router.replace("/admin/login");
-      return;
     }
-    setRol(userRol);
   }, [rolesPermitidos, router]);
 
-  return rol;
+  if (typeof window === "undefined") return null;
+  const userRol = localStorage.getItem("user_rol");
+  if (!userRol || !rolesPermitidos.includes(userRol)) return null;
+  return userRol;
 }
 
 export function getDatosPropietario(): {

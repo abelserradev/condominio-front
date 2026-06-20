@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   fetchOwners,
@@ -56,7 +56,7 @@ export default function AdminPropietariosPage() {
     setModalAbierto(true);
   }
 
-  async function cargarLista() {
+  const cargarLista = useCallback(async () => {
     setCargando(true);
     setError(null);
     try {
@@ -71,7 +71,7 @@ export default function AdminPropietariosPage() {
     } finally {
       setCargando(false);
     }
-  }
+  }, [mostrarInactivos]);
 
   useEffect(() => {
     const token = localStorage.getItem("admin_token");
@@ -80,8 +80,8 @@ export default function AdminPropietariosPage() {
       router.replace("/admin/login");
       return;
     }
-    cargarLista();
-  }, [mostrarInactivos, router]);
+    void cargarLista();
+  }, [mostrarInactivos, router, cargarLista]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

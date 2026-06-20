@@ -59,6 +59,24 @@ function clasesPrioridad(prioridad: AvisoPrioridad): string {
   }
 }
 
+function reemplazarAvisoEnLista(lista: Aviso[], actualizado: Aviso): Aviso[] {
+  return lista.map((aviso) =>
+    aviso._id === actualizado._id ? actualizado : aviso,
+  );
+}
+
+function agregarAvisoAlInicio(lista: Aviso[], aviso: Aviso): Aviso[] {
+  return [aviso, ...lista];
+}
+
+function quitarAvisoDeLista(lista: Aviso[], id: string): Aviso[] {
+  return lista.filter((aviso) => aviso._id !== id);
+}
+
+function mensajeErrorOperacion(err: unknown, fallback: string): string {
+  return err instanceof Error ? err.message : fallback;
+}
+
 export default function AdminAvisosPage() {
   const router = useRouter();
   const [avisos, setAvisos] = useState<Aviso[]>([]);
@@ -78,16 +96,26 @@ export default function AdminAvisosPage() {
       router.replace("/admin/login");
       return;
     }
-    cargarAvisos();
-  }, [router]);
 
-  function cargarAvisos() {
-    setCargando(true);
-    fetchAvisos()
-      .then(setAvisos)
-      .catch(() => setAvisos([]))
-      .finally(() => setCargando(false));
-  }
+    let cancelled = false;
+    void (async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+      setCargando(true);
+      try {
+        const data = await fetchAvisos();
+        if (!cancelled) setAvisos(data);
+      } catch {
+        if (!cancelled) setAvisos([]);
+      } finally {
+        if (!cancelled) setCargando(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
 
   function limpiarFormulario() {
     setTitulo("");
@@ -100,12 +128,12 @@ export default function AdminAvisosPage() {
   function rellenarParaEditar(aviso: Aviso) {
     setTitulo(aviso.titulo);
     setMensaje(aviso.mensaje);
-    setPrioridad((aviso.prioridad ?? "media") as AvisoPrioridad);
+    setPrioridad(aviso.prioridad ?? "media");
     setTipo(aviso.tipo);
     setEditandoId(aviso._id);
   }
 
-  function enviarFormulario(e: React.FormEvent) {
+  async function enviarFormulario(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
     if (!titulo.trim() || !mensaje.trim()) {
@@ -114,48 +142,49 @@ export default function AdminAvisosPage() {
     }
     setEnviando(true);
     const payload = { titulo: titulo.trim(), mensaje: mensaje.trim(), prioridad, tipo };
-    const promesa = editandoId
-      ? updateAviso(editandoId, payload)
-      : createAviso({ ...payload, estado: "borrador" });
-    promesa
-      .then((aviso) => {
-        if (editandoId) {
-          setAvisos((prev) =>
-            prev.map((a) => (a._id === aviso._id ? aviso : a))
-          );
-        } else {
-          setAvisos((prev) => [aviso, ...prev]);
-        }
-        limpiarFormulario();
-      })
-      .catch((err) => setError(err instanceof Error ? err.message : "Error al guardar"))
-      .finally(() => setEnviando(false));
+    try {
+      const aviso = editandoId
+        ? await updateAviso(editandoId, payload)
+        : await createAviso({ ...payload, estado: "borrador" });
+      if (editandoId) {
+        setAvisos((prev) => reemplazarAvisoEnLista(prev, aviso));
+      } else {
+        setAvisos((prev) => agregarAvisoAlInicio(prev, aviso));
+      }
+      limpiarFormulario();
+    } catch (err) {
+      setError(mensajeErrorOperacion(err, "Error al guardar"));
+    } finally {
+      setEnviando(false);
+    }
   }
 
-  function toggleEstado(aviso: Aviso) {
+  async function toggleEstado(aviso: Aviso) {
     const nuevoEstado = aviso.estado === "publicado" ? "borrador" : "publicado";
     setEnviando(true);
-    updateAviso(aviso._id, { estado: nuevoEstado })
-      .then((actualizado) => {
-        setAvisos((prev) =>
-          prev.map((a) => (a._id === actualizado._id ? actualizado : a))
-        );
-        if (editandoId === aviso._id) setEditandoId(null);
-      })
-      .catch((err) => setError(err instanceof Error ? err.message : "Error al actualizar"))
-      .finally(() => setEnviando(false));
+    try {
+      const actualizado = await updateAviso(aviso._id, { estado: nuevoEstado });
+      setAvisos((prev) => reemplazarAvisoEnLista(prev, actualizado));
+      if (editandoId === aviso._id) setEditandoId(null);
+    } catch (err) {
+      setError(mensajeErrorOperacion(err, "Error al actualizar"));
+    } finally {
+      setEnviando(false);
+    }
   }
 
-  function eliminar(aviso: Aviso) {
+  async function eliminar(aviso: Aviso) {
     if (!confirm(`¿Eliminar el aviso "${aviso.titulo}"?`)) return;
     setEliminandoId(aviso._id);
-    deleteAviso(aviso._id)
-      .then(() => {
-        setAvisos((prev) => prev.filter((a) => a._id !== aviso._id));
-        if (editandoId === aviso._id) limpiarFormulario();
-      })
-      .catch((err) => setError(err instanceof Error ? err.message : "Error al eliminar"))
-      .finally(() => setEliminandoId(null));
+    try {
+      await deleteAviso(aviso._id);
+      setAvisos((prev) => quitarAvisoDeLista(prev, aviso._id));
+      if (editandoId === aviso._id) limpiarFormulario();
+    } catch (err) {
+      setError(mensajeErrorOperacion(err, "Error al eliminar"));
+    } finally {
+      setEliminandoId(null);
+    }
   }
 
   const publicados = avisos.filter((a) => a.estado === "publicado").length;
@@ -166,7 +195,7 @@ export default function AdminAvisosPage() {
       <div className="border-b border-slate-200 bg-white px-4 py-4 md:px-6">
         <div className="mx-auto flex max-w-6xl items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-r from-violet-500 to-purple-400 text-white">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-linear-to-r from-violet-500 to-purple-400 text-white">
               <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M18 8A6 6 0 106 8c0 7-3 9-3 9h18s-3-2-3-9" />
                 <path d="M13.73 21a2 2 0 01-3.46 0" />
@@ -309,7 +338,7 @@ export default function AdminAvisosPage() {
               <ul className="space-y-4">
                 {avisos.map((aviso) => {
                   const esPublicado = aviso.estado === "publicado";
-                  const prioridadAviso = (aviso.prioridad ?? "media") as AvisoPrioridad;
+                  const prioridadAviso = aviso.prioridad ?? "media";
                   return (
                     <li
                       key={aviso._id}

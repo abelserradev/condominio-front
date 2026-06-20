@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   fetchPayments,
@@ -41,6 +42,60 @@ type Metricas = {
   apartamentosSoloDeudaCuotasEspeciales: number;
 };
 
+function esDeudaCondominio(tipoDeuda: string): boolean {
+  const t = tipoDeuda.toLowerCase();
+  return t.includes("condominio") || t === "pendiente" || t === "factura";
+}
+
+function esDeudaCuotasEspeciales(tipoDeuda: string): boolean {
+  const t = tipoDeuda.toLowerCase();
+  return t.includes("cuota") || t.includes("especial") || t.includes("acumulada") || t.includes("reparacion");
+}
+
+function calcularMetricas(
+  todosPagos: Payment[],
+  recibos: Recibo[],
+  totalApartamentos: number,
+): Metricas {
+  const pagosRegistrados = todosPagos.length;
+  const recibosPendientesCondominioOCuotas = recibos.filter(
+    (r) =>
+      (esDeudaCondominio(r.tipoDeuda) || esDeudaCuotasEspeciales(r.tipoDeuda)) &&
+      (r.estado ?? "pendiente") === "pendiente" &&
+      (r.montoPagado ?? 0) < r.montoUsd,
+  );
+  const keysAptMorosos = new Set<string>();
+  for (const r of recibosPendientesCondominioOCuotas) {
+    const p = Number(r.piso);
+    const a = Number(r.apartamento);
+    if (Number.isFinite(p) && Number.isFinite(a)) {
+      keysAptMorosos.add(`${p}-${a}`);
+    }
+  }
+  const apartamentosConDeudas = keysAptMorosos.size;
+  const recibosConSaldo = recibos.filter((r) => (r.montoPagado ?? 0) < r.montoUsd);
+  const apartamentosConDeuda = new Set(
+    recibosConSaldo.map((r) => `${r.piso}-${r.apartamento}`),
+  );
+  const apartamentosSinDeudasActivas = totalApartamentos - apartamentosConDeuda.size;
+  const aptsConDeudaCondominio = new Set<string>();
+  const aptsConDeudaCuotasEspeciales = new Set<string>();
+  for (const r of recibosConSaldo) {
+    const key = `${r.piso}-${r.apartamento}`;
+    if (esDeudaCondominio(r.tipoDeuda)) aptsConDeudaCondominio.add(key);
+    if (esDeudaCuotasEspeciales(r.tipoDeuda)) aptsConDeudaCuotasEspeciales.add(key);
+  }
+  const apartamentosSoloDeudaCuotasEspeciales = [...aptsConDeudaCuotasEspeciales].filter(
+    (key) => !aptsConDeudaCondominio.has(key),
+  ).length;
+  return {
+    pagosRegistrados,
+    apartamentosConDeudas,
+    apartamentosSinDeudasActivas: Math.max(0, apartamentosSinDeudasActivas),
+    apartamentosSoloDeudaCuotasEspeciales,
+  };
+}
+
 export default function AdminInicioPage() {
   const router = useRouter();
   const [pagosPendientes, setPagosPendientes] = useState<Payment[]>([]);
@@ -59,73 +114,7 @@ export default function AdminInicioPage() {
   const [suscripcion, setSuscripcion] = useState<BuildingSuscripcion | null>(null);
   const [modalPagoAbierto, setModalPagoAbierto] = useState(false);
 
-  useEffect(() => {
-    const token = localStorage.getItem("admin_token");
-    if (!token) {
-      router.replace("/admin/login");
-      return;
-    }
-    cargarDatos();
-    fetchMiSuscripcion().then(setSuscripcion).catch(() => {});
-  }, [router]);
-
-  function esDeudaCondominio(tipoDeuda: string): boolean {
-    const t = tipoDeuda.toLowerCase();
-    return t.includes("condominio") || t === "pendiente" || t === "factura";
-  }
-
-  function esDeudaCuotasEspeciales(tipoDeuda: string): boolean {
-    const t = tipoDeuda.toLowerCase();
-    return t.includes("cuota") || t.includes("especial") || t.includes("acumulada") || t.includes("reparacion");
-  }
-
-  function calcularMetricas(
-    todosPagos: Payment[],
-    recibos: Recibo[],
-    totalApartamentos: number,
-  ): Metricas {
-    const pagosRegistrados = todosPagos.length;
-    // Apartamentos únicos con al menos una deuda pendiente (condominio o cuotas especiales)
-    const recibosPendientesCondominioOCuotas = recibos.filter(
-      (r) =>
-        (esDeudaCondominio(r.tipoDeuda) || esDeudaCuotasEspeciales(r.tipoDeuda)) &&
-        (r.estado ?? "pendiente") === "pendiente" &&
-        (r.montoPagado ?? 0) < r.montoUsd,
-    );
-    // Un apartamento cuenta una sola vez aunque tenga varias facturas pendientes
-    const keysAptMorosos = new Set<string>();
-    for (const r of recibosPendientesCondominioOCuotas) {
-      const p = Number(r.piso);
-      const a = Number(r.apartamento);
-      if (Number.isFinite(p) && Number.isFinite(a)) {
-        keysAptMorosos.add(`${p}-${a}`);
-      }
-    }
-    const apartamentosConDeudas = keysAptMorosos.size;
-    const recibosConSaldo = recibos.filter((r) => (r.montoPagado ?? 0) < r.montoUsd);
-    const apartamentosConDeuda = new Set(
-      recibosConSaldo.map((r) => `${r.piso}-${r.apartamento}`),
-    );
-    const apartamentosSinDeudasActivas = totalApartamentos - apartamentosConDeuda.size;
-    const aptsConDeudaCondominio = new Set<string>();
-    const aptsConDeudaCuotasEspeciales = new Set<string>();
-    for (const r of recibosConSaldo) {
-      const key = `${r.piso}-${r.apartamento}`;
-      if (esDeudaCondominio(r.tipoDeuda)) aptsConDeudaCondominio.add(key);
-      if (esDeudaCuotasEspeciales(r.tipoDeuda)) aptsConDeudaCuotasEspeciales.add(key);
-    }
-    const apartamentosSoloDeudaCuotasEspeciales = [...aptsConDeudaCuotasEspeciales].filter(
-      (key) => !aptsConDeudaCondominio.has(key),
-    ).length;
-    return {
-      pagosRegistrados,
-      apartamentosConDeudas,
-      apartamentosSinDeudasActivas: Math.max(0, apartamentosSinDeudasActivas),
-      apartamentosSoloDeudaCuotasEspeciales,
-    };
-  }
-
-  async function cargarDatos() {
+  const cargarDatos = useCallback(async () => {
     try {
       setCargando(true);
       const [pagosPend, pagosAcept, apts, recibos, tasaRes] = await Promise.all([
@@ -151,7 +140,17 @@ export default function AdminInicioPage() {
     } finally {
       setCargando(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    const token = localStorage.getItem("admin_token");
+    if (!token) {
+      router.replace("/admin/login");
+      return;
+    }
+    void cargarDatos();
+    fetchMiSuscripcion().then(setSuscripcion).catch(() => {});
+  }, [router, cargarDatos]);
 
   async function handleClickPago(pago: Payment) {
     try {
@@ -601,12 +600,15 @@ export default function AdminInicioPage() {
                       Comprobante
                     </label>
                     <div className="mt-2 rounded-lg border border-slate-200 p-2">
-                      <img
+                      <Image
                         src={getComprobanteUrl(
                           pagoSeleccionado.comprobanteFileId
                         )}
                         alt="Comprobante"
-                        className="max-w-full rounded-lg"
+                        width={800}
+                        height={600}
+                        unoptimized
+                        className="max-w-full h-auto rounded-lg"
                       />
                     </div>
                   </div>
