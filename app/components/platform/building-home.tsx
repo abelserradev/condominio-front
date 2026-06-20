@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import { IconCard } from "../home/icon-card";
-import { ActionCard } from "../home/action-card";
 import { ReporteOkBanner } from "../home/reporte-ok-banner";
 import { TasaBcvDelDia } from "../home/tasa-bcv-del-dia";
 import { NecesitasAyudaCard } from "../home/ayuda-card";

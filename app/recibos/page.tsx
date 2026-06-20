@@ -30,6 +30,63 @@ const MESES = [
 
 type Vista = "pisos" | "apartamentos" | "recibos";
 
+function clasesBadgeEstadoPago(estado?: string): string {
+  switch (estado) {
+    case "aceptado":
+      return "bg-green-500";
+    case "rechazado":
+      return "bg-red-500";
+    default:
+      return "bg-slate-400";
+  }
+}
+
+function obtenerTextoEstado(estado?: string): string {
+  switch (estado) {
+    case "aceptado":
+      return "Pagada";
+    case "rechazado":
+      return "Rechazada";
+    default:
+      return "Pendiente";
+  }
+}
+
+function clasesBadgeEstadoRecibo(estado: string): string {
+  switch (estado) {
+    case "aceptado":
+      return "bg-green-100 text-green-800";
+    case "rechazado":
+      return "bg-red-100 text-red-800";
+    default:
+      return "bg-slate-100 text-slate-700";
+  }
+}
+
+function obtenerTextoEstadoRecibo(estado: string): string {
+  switch (estado) {
+    case "aceptado":
+      return "Pagado";
+    case "rechazado":
+      return "Rechazado";
+    default:
+      return "En revisión";
+  }
+}
+
+function obtenerDetalleEstadoPago(
+  estado: string | undefined,
+  fechaFormateada: string,
+): string {
+  if (estado === "aceptado") {
+    return `Aprobada el ${fechaFormateada}`;
+  }
+  if (estado === "rechazado") {
+    return "Rechazada";
+  }
+  return "Pendiente";
+}
+
 export default function RecibosPage() {
   const [vista, setVista] = useState<Vista>("pisos");
   const [pisoSeleccionado, setPisoSeleccionado] = useState<number | null>(null);
@@ -40,7 +97,6 @@ export default function RecibosPage() {
   const [recibosPendientes, setRecibosPendientes] = useState<Recibo[]>([]);
   const [abono, setAbono] = useState<number>(0);
   const [cargando, setCargando] = useState(false);
-  const [cargandoRecibos, setCargandoRecibos] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSelectPiso = (piso: number) => {
@@ -65,46 +121,47 @@ export default function RecibosPage() {
     setApartamentoSeleccionado(null);
   };
 
-  // silent = true: actualización en segundo plano (interval), no muestra "Cargando" ni resetea scroll
-  const cargarDatos = (silent = false) => {
-    if (
-      vista !== "recibos" ||
-      pisoSeleccionado == null ||
-      apartamentoSeleccionado == null
-    ) {
-      setPagos([]);
-      setRecibosPendientes([]);
-      setAbono(0);
-      return;
-    }
-    if (!silent) {
-      setCargando(true);
-      setCargandoRecibos(true);
-      setError(null);
-    }
-    Promise.all([
-      fetchPaymentsByApartamento(pisoSeleccionado, apartamentoSeleccionado),
-      fetchRecibos(pisoSeleccionado, apartamentoSeleccionado, "pendiente"),
-      fetchAbono(pisoSeleccionado, apartamentoSeleccionado),
-    ])
-      .then(([pagosData, recibosData, abonoData]) => {
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadData(silent: boolean) {
+      await Promise.resolve();
+      if (cancelled) return;
+
+      if (
+        vista !== "recibos" ||
+        pisoSeleccionado == null ||
+        apartamentoSeleccionado == null
+      ) {
+        setPagos([]);
+        setRecibosPendientes([]);
+        setAbono(0);
+        return;
+      }
+
+      if (!silent) {
+        setCargando(true);
+        setError(null);
+      }
+
+      try {
+        const [pagosData, recibosData, abonoData] = await Promise.all([
+          fetchPaymentsByApartamento(pisoSeleccionado, apartamentoSeleccionado),
+          fetchRecibos(pisoSeleccionado, apartamentoSeleccionado, "pendiente"),
+          fetchAbono(pisoSeleccionado, apartamentoSeleccionado),
+        ]);
+        if (cancelled) return;
         setPagos(pagosData);
         setRecibosPendientes(recibosData);
         setAbono(abonoData);
-      })
-      .catch(() => {
-        if (!silent) setError("No se pudieron cargar los datos");
-      })
-      .finally(() => {
-        if (!silent) {
-          setCargando(false);
-          setCargandoRecibos(false);
-        }
-      });
-  };
+      } catch {
+        if (!cancelled && !silent) setError("No se pudieron cargar los datos");
+      } finally {
+        if (!cancelled && !silent) setCargando(false);
+      }
+    }
 
-  useEffect(() => {
-    cargarDatos(false);
+    void loadData(false);
     // Recargar datos cada 10 segundos en segundo plano (sin mostrar "Cargando" para no resetear scroll)
     const intervalId = setInterval(() => {
       if (
@@ -113,10 +170,13 @@ export default function RecibosPage() {
         pisoSeleccionado != null &&
         apartamentoSeleccionado != null
       ) {
-        cargarDatos(true);
+        void loadData(true);
       }
     }, 10000);
-    return () => clearInterval(intervalId);
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+    };
   }, [vista, pisoSeleccionado, apartamentoSeleccionado]);
 
   const formatearMeses = (meses: number[]) =>
@@ -142,17 +202,6 @@ export default function RecibosPage() {
     const día = String(date.getUTCDate()).padStart(2, '0');
     return `${día}/${mes}/${año}`;
   };
-
-  function obtenerTextoEstado(estado?: string): string {
-    switch (estado) {
-      case "aceptado":
-        return "Pagada";
-      case "rechazado":
-        return "Rechazada";
-      default:
-        return "Pendiente";
-    }
-  }
 
   return (
     <div className="mx-auto min-h-[calc(100vh-4rem)] max-w-2xl bg-white px-4 py-8">
@@ -285,19 +334,9 @@ export default function RecibosPage() {
                         Recibo de condominio
                       </h3>
                       <span
-                        className={`rounded-full px-3 py-1 text-xs font-medium ${
-                          estadoRecibo === "aceptado"
-                            ? "bg-green-100 text-green-800"
-                            : estadoRecibo === "rechazado"
-                              ? "bg-red-100 text-red-800"
-                              : "bg-slate-100 text-slate-700"
-                        }`}
+                        className={`rounded-full px-3 py-1 text-xs font-medium ${clasesBadgeEstadoRecibo(estadoRecibo)}`}
                       >
-                        {estadoRecibo === "aceptado"
-                          ? "Pagado"
-                          : estadoRecibo === "rechazado"
-                            ? "Rechazado"
-                            : "En revisión"}
+                        {obtenerTextoEstadoRecibo(estadoRecibo)}
                       </span>
                     </div>
                     <div className="grid grid-cols-2 gap-x-4 gap-y-4 p-4">
@@ -406,13 +445,7 @@ export default function RecibosPage() {
                 >
                   <div className="flex flex-wrap items-center gap-3 p-4">
                     <span
-                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium text-white ${
-                        p.estado === "aceptado"
-                          ? "bg-green-500"
-                          : p.estado === "rechazado"
-                            ? "bg-red-500"
-                            : "bg-slate-400"
-                      }`}
+                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium text-white ${clasesBadgeEstadoPago(p.estado)}`}
                     >
                       {p.estado === "aceptado" && (
                         <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -422,11 +455,7 @@ export default function RecibosPage() {
                       {obtenerTextoEstado(p.estado)}
                     </span>
                     <span className="text-sm text-slate-500">
-                      {p.estado === "aceptado"
-                        ? `Aprobada el ${formatearFecha(p.fechaPago)}`
-                        : p.estado === "rechazado"
-                          ? `Rechazada`
-                          : `Pendiente`}
+                      {obtenerDetalleEstadoPago(p.estado, formatearFecha(p.fechaPago))}
                     </span>
                   </div>
                   <div className="grid grid-cols-2 gap-x-6 gap-y-4 border-t border-slate-100 p-4">

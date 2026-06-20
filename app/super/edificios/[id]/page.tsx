@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -20,17 +20,17 @@ export default function SuperEdificioDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [suspending, setSuspending] = useState(false);
 
-  function cargar() {
+  const cargar = useCallback(() => {
     setCargando(true);
     fetchSuperBuilding(id)
       .then(setEdificio)
       .catch((e) => setError(e instanceof Error ? e.message : "Error"))
       .finally(() => setCargando(false));
-  }
+  }, [id]);
 
   useEffect(() => {
     cargar();
-  }, [id]);
+  }, [cargar]);
 
   async function handleSuspender() {
     if (!confirm("¿Suspender este edificio? Los admins no podrán operar hasta renovar.")) return;

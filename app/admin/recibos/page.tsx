@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, useEffect } from "react";
+import { Suspense, useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import imageCompression from "browser-image-compression";
@@ -30,6 +30,158 @@ const MESES = [
   "Diciembre",
 ];
 
+function formatearMonto(monto: number): string {
+  return new Intl.NumberFormat("es-VE", {
+    style: "currency",
+    currency: "USD",
+  }).format(monto);
+}
+
+function obtenerColorEstado(estado?: string): string {
+  switch (estado) {
+    case "aceptado":
+      return "bg-green-100 text-green-800";
+    case "rechazado":
+      return "bg-red-100 text-red-800";
+    default:
+      return "bg-yellow-100 text-yellow-800";
+  }
+}
+
+function obtenerTextoEstado(estado?: string): string {
+  switch (estado) {
+    case "aceptado":
+      return "Aceptado";
+    case "rechazado":
+      return "Rechazado";
+    default:
+      return "Pendiente";
+  }
+}
+
+function compararPorCreatedAtDesc<T extends { createdAt?: string }>(
+  a: T,
+  b: T,
+): number {
+  const fechaA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+  const fechaB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+  return fechaB - fechaA;
+}
+
+function formatearMesesNumeros(meses: number[]): string {
+  return meses.map((m) => MESES[m - 1]).join(", ");
+}
+
+function formatearFechaUtc(fecha: string | Date): string {
+  if (!fecha) return "N/A";
+  const date = typeof fecha === "string" ? new Date(fecha) : fecha;
+  const año = date.getUTCFullYear();
+  const mes = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const día = String(date.getUTCDate()).padStart(2, "0");
+  return `${día}/${mes}/${año}`;
+}
+
+function obtenerPagosRelacionadosRecibo(
+  recibo: Recibo,
+  pagosLista: Payment[],
+): Payment[] {
+  return pagosLista.filter(
+    (p) => p.recibosPagados?.includes(recibo._id) && p.estado === "aceptado",
+  );
+}
+
+function obtenerMontoAbonoPago(recibo: Recibo, pago: Payment): number {
+  const abono = recibo.abonos?.find((a) => a.paymentId === pago._id);
+  return abono?.monto ?? pago.montoUsd;
+}
+
+function obtenerRecibosRelacionadosPago(
+  pago: Payment,
+  recibosLista: Recibo[],
+): Recibo[] {
+  if (!pago.recibosPagados?.length) return [];
+  return recibosLista.filter((r) => pago.recibosPagados?.includes(r._id));
+}
+
+function textoBotonConfirmacion(
+  procesando: boolean,
+  accion: "aceptar" | "rechazar" | null,
+): string {
+  if (procesando) return "Procesando...";
+  if (accion === "aceptar") return "Aceptar";
+  return "Rechazar";
+}
+
+function clasesBotonConfirmacion(
+  accion: "aceptar" | "rechazar" | null,
+): string {
+  if (accion === "aceptar") return "bg-green-600 hover:bg-green-700";
+  return "bg-red-600 hover:bg-red-700";
+}
+
+function ResumenMontosRecibo({ recibo }: Readonly<{ recibo: Recibo }>) {
+  const montoPagado = recibo.montoPagado ?? 0;
+  if (montoPagado <= 0) return null;
+  return (
+    <div className="mt-1">
+      <p className="text-sm text-green-700">
+        Pagado: {formatearMonto(montoPagado)}
+      </p>
+      <p className="text-sm text-amber-700">
+        Pendiente: {formatearMonto(recibo.montoUsd - montoPagado)}
+      </p>
+    </div>
+  );
+}
+
+function PagosRelacionadosRecibo({
+  recibo,
+  pagosLista,
+}: Readonly<{
+  recibo: Recibo;
+  pagosLista: Payment[];
+}>) {
+  const pagosRelacionados = obtenerPagosRelacionadosRecibo(recibo, pagosLista);
+  if (pagosRelacionados.length === 0) return null;
+  return (
+    <div className="mt-3 rounded-lg bg-green-50 p-3">
+      <p className="text-xs font-medium text-green-800">Pagado por:</p>
+      {pagosRelacionados.map((pago) => (
+        <p key={pago._id} className="mt-1 text-sm text-green-700">
+          • Pago #{pago.numeroComprobante} -{" "}
+          {formatearMonto(obtenerMontoAbonoPago(recibo, pago))} (
+          {formatearFechaUtc(pago.fechaPago)})
+        </p>
+      ))}
+    </div>
+  );
+}
+
+function RecibosPagadosPorPago({
+  pago,
+  recibosLista,
+}: Readonly<{
+  pago: Payment;
+  recibosLista: Recibo[];
+}>) {
+  const recibosRelacionados = obtenerRecibosRelacionadosPago(pago, recibosLista);
+  if (recibosRelacionados.length === 0) return null;
+  return (
+    <div className="mt-4 rounded-lg bg-blue-50 p-3">
+      <p className="text-xs font-medium text-blue-800">
+        Recibos pagados con este pago:
+      </p>
+      {recibosRelacionados.map((reciboRelacionado) => (
+        <p key={reciboRelacionado._id} className="mt-1 text-sm text-blue-700">
+          • {reciboRelacionado.tipoDeuda} -{" "}
+          {formatearMesesNumeros(reciboRelacionado.meses)} -{" "}
+          {formatearMonto(reciboRelacionado.montoUsd)}
+        </p>
+      ))}
+    </div>
+  );
+}
+
 function AdminRecibosContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -53,37 +205,16 @@ function AdminRecibosContent() {
   const [accionConfirmacion, setAccionConfirmacion] = useState<'aceptar' | 'rechazar' | null>(null);
   const [procesando, setProcesando] = useState(false);
 
-  useEffect(() => {
-    // Verificar que el usuario esté autenticado para acceder a la página de admin
-    const token = localStorage.getItem("admin_token");
-    if (!token) {
-      router.replace("/admin/login");
-      return;
-    }
-    if (piso && apartamento) {
-      cargarPagos();
-    }
-  }, [piso, apartamento, router]);
-
-  async function cargarPagos() {
+  const cargarPagos = useCallback(async () => {
     if (!piso || !apartamento) return;
     try {
       setCargando(true);
-      // Las peticiones ahora son públicas, no requieren token
       const [todosPagos, todosRecibos] = await Promise.all([
-        fetchPayments(parseInt(piso), parseInt(apartamento)),
-        fetchRecibos(parseInt(piso), parseInt(apartamento)),
+        fetchPayments(Number.parseInt(piso), Number.parseInt(apartamento)),
+        fetchRecibos(Number.parseInt(piso), Number.parseInt(apartamento)),
       ]);
-      const ordenadosPagos = todosPagos.sort((a, b) => {
-        const fechaA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-        const fechaB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-        return fechaB - fechaA;
-      });
-      const ordenadosRecibos = todosRecibos.sort((a, b) => {
-        const fechaA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-        const fechaB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-        return fechaB - fechaA;
-      });
+      const ordenadosPagos = todosPagos.toSorted(compararPorCreatedAtDesc);
+      const ordenadosRecibos = todosRecibos.toSorted(compararPorCreatedAtDesc);
       setPagos(ordenadosPagos);
       setRecibos(ordenadosRecibos);
     } catch (err) {
@@ -91,9 +222,20 @@ function AdminRecibosContent() {
     } finally {
       setCargando(false);
     }
-  }
+  }, [piso, apartamento]);
 
-  async function handleSubmitFormulario(e: React.FormEvent) {
+  useEffect(() => {
+    const token = localStorage.getItem("admin_token");
+    if (!token) {
+      router.replace("/admin/login");
+      return;
+    }
+    if (piso && apartamento) {
+      void cargarPagos();
+    }
+  }, [piso, apartamento, router, cargarPagos]);
+
+  async function handleSubmitFormulario(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     setErrorFormulario(null);
 
@@ -107,10 +249,10 @@ function AdminRecibosContent() {
       return;
     }
 
-    const pisoNum = parseInt(piso);
-    const apartamentoNum = parseInt(apartamento);
+    const pisoNum = Number.parseInt(piso);
+    const apartamentoNum = Number.parseInt(apartamento);
 
-    if (isNaN(pisoNum) || isNaN(apartamentoNum)) {
+    if (Number.isNaN(pisoNum) || Number.isNaN(apartamentoNum)) {
       setErrorFormulario("Apartamento inválido");
       return;
     }
@@ -121,8 +263,8 @@ function AdminRecibosContent() {
       return;
     }
 
-    const montoNum = parseFloat(montoUsd);
-    if (isNaN(montoNum) || montoNum <= 0) {
+    const montoNum = Number.parseFloat(montoUsd);
+    if (Number.isNaN(montoNum) || montoNum <= 0) {
       setErrorFormulario("Monto inválido");
       return;
     }
@@ -240,49 +382,6 @@ function AdminRecibosContent() {
     }
   }
 
-  function formatearMeses(meses: number[]): string {
-    return meses.map((m) => MESES[m - 1]).join(", ");
-  }
-
-  // Formatear fecha correctamente evitando problemas de zona horaria
-  const formatearFecha = (fecha: string | Date): string => {
-    if (!fecha) return "N/A";
-    const date = typeof fecha === 'string' ? new Date(fecha) : fecha;
-    const año = date.getUTCFullYear();
-    const mes = String(date.getUTCMonth() + 1).padStart(2, '0');
-    const día = String(date.getUTCDate()).padStart(2, '0');
-    return `${día}/${mes}/${año}`;
-  };
-
-  function formatearMonto(monto: number): string {
-    return new Intl.NumberFormat("es-VE", {
-      style: "currency",
-      currency: "USD",
-    }).format(monto);
-  }
-
-  function obtenerColorEstado(estado?: string): string {
-    switch (estado) {
-      case "aceptado":
-        return "bg-green-100 text-green-800";
-      case "rechazado":
-        return "bg-red-100 text-red-800";
-      default:
-        return "bg-yellow-100 text-yellow-800";
-    }
-  }
-
-  function obtenerTextoEstado(estado?: string): string {
-    switch (estado) {
-      case "aceptado":
-        return "Aceptado";
-      case "rechazado":
-        return "Rechazado";
-      default:
-        return "Pendiente";
-    }
-  }
-
   if (cargando) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -338,14 +437,14 @@ function AdminRecibosContent() {
                   <div className="mb-4 flex items-start justify-between">
                     <div>
                       <h3 className="text-lg font-semibold text-slate-800">
-                        Mes(es): {formatearMeses(recibo.meses)}
+                        Mes(es): {formatearMesesNumeros(recibo.meses)}
                       </h3>
                       <p className="mt-1 text-sm text-slate-600">
                         Tipo: {recibo.tipoDeuda}
                       </p>
                       <p className="mt-1 text-sm text-slate-600">
                         Fecha reportada:{" "}
-                        {formatearFecha(recibo.fechaReportada)}
+                        {formatearFechaUtc(recibo.fechaReportada)}
                       </p>
                     </div>
                     <span
@@ -363,19 +462,7 @@ function AdminRecibosContent() {
                       <p className="text-lg font-bold text-slate-800">
                         Total: {formatearMonto(recibo.montoUsd)}
                       </p>
-                      {(() => {
-                        const montoPagado = recibo.montoPagado ?? 0;
-                        return montoPagado > 0 ? (
-                          <div className="mt-1">
-                            <p className="text-sm text-green-700">
-                              Pagado: {formatearMonto(montoPagado)}
-                            </p>
-                            <p className="text-sm text-amber-700">
-                              Pendiente: {formatearMonto(recibo.montoUsd - montoPagado)}
-                            </p>
-                          </div>
-                        ) : null;
-                      })()}
+                      <ResumenMontosRecibo recibo={recibo} />
                     </div>
                     {recibo.facturaFileId && (
                       <a
@@ -388,32 +475,7 @@ function AdminRecibosContent() {
                       </a>
                     )}
                   </div>
-                  {(() => {
-                    const pagosRelacionados = pagos.filter((p) => 
-                      p.recibosPagados?.includes(recibo._id) && p.estado === 'aceptado'
-                    );
-                    if (pagosRelacionados.length > 0) {
-                      return (
-                        <div className="mt-3 rounded-lg bg-green-50 p-3">
-                          <p className="text-xs font-medium text-green-800">
-                            Pagado por:
-                          </p>
-                          {pagosRelacionados.map((pagoRelacionado) => {
-                            const abono = recibo.abonos?.find(
-                              (a) => a.paymentId === pagoRelacionado._id
-                            );
-                            const montoAbono = abono?.monto ?? pagoRelacionado.montoUsd;
-                            return (
-                              <p key={pagoRelacionado._id} className="mt-1 text-sm text-green-700">
-                                • Pago #{pagoRelacionado.numeroComprobante} - {formatearMonto(montoAbono)} ({formatearFecha(pagoRelacionado.fechaPago)})
-                              </p>
-                            );
-                          })}
-                        </div>
-                      );
-                    }
-                    return null;
-                  })()}
+                  <PagosRelacionadosRecibo recibo={recibo} pagosLista={pagos} />
                 </div>
               ))}
             </div>
@@ -439,11 +501,11 @@ function AdminRecibosContent() {
                     <div className="mb-4 flex items-start justify-between">
                       <div>
                         <h3 className="text-lg font-semibold text-slate-800">
-                          Mes(es): {formatearMeses(pago.meses)}
+                          Mes(es): {formatearMesesNumeros(pago.meses)}
                         </h3>
                         <p className="mt-1 text-sm text-slate-600">
                           Fecha de pago:{" "}
-                          {formatearFecha(pago.fechaPago)}
+                          {formatearFechaUtc(pago.fechaPago)}
                         </p>
                       </div>
                       <span
@@ -504,20 +566,7 @@ function AdminRecibosContent() {
                         })}
                       </p>
                     )}
-                    {pago.recibosPagados && pago.recibosPagados.length > 0 && (
-                      <div className="mt-4 rounded-lg bg-blue-50 p-3">
-                        <p className="text-xs font-medium text-blue-800">
-                          Recibos pagados con este pago:
-                        </p>
-                        {recibos
-                          .filter((r) => pago.recibosPagados?.includes(r._id))
-                          .map((reciboRelacionado) => (
-                            <p key={reciboRelacionado._id} className="mt-1 text-sm text-blue-700">
-                              • {reciboRelacionado.tipoDeuda} - {formatearMeses(reciboRelacionado.meses)} - {formatearMonto(reciboRelacionado.montoUsd)}
-                            </p>
-                          ))}
-                      </div>
-                    )}
+                    <RecibosPagadosPorPago pago={pago} recibosLista={recibos} />
 
                     {pago.estado === 'pendiente' && (
                       <div className="mt-4 flex gap-2">
@@ -590,19 +639,23 @@ function AdminRecibosContent() {
 
                 <div className="space-y-4">
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-slate-700">
+                    <p className="mb-2 block text-sm font-medium text-slate-700">
                       Apartamento
-                    </label>
+                    </p>
                     <div className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700 sm:px-4 sm:text-base">
                       P{piso}-A{apartamento}
                     </div>
                   </div>
 
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-slate-700">
+                    <label
+                      htmlFor="tipo-deuda"
+                      className="mb-2 block text-sm font-medium text-slate-700"
+                    >
                       Tipo de deuda
                     </label>
                     <select
+                      id="tipo-deuda"
                       value={tipoDeuda}
                       onChange={(e) => setTipoDeuda(e.target.value)}
                       className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500 sm:px-4 sm:text-base"
@@ -615,18 +668,22 @@ function AdminRecibosContent() {
                   </div>
 
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-slate-700">
+                    <label
+                      htmlFor="mes-deuda"
+                      className="mb-2 block text-sm font-medium text-slate-700"
+                    >
                       Mes de la deuda
                     </label>
                     <select
+                      id="mes-deuda"
                       value={mesDeuda}
                       onChange={(e) => setMesDeuda(e.target.value)}
                       className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500 sm:px-4 sm:text-base"
                       required
                     >
                       <option value="">Seleccione un mes</option>
-                      {MESES.map((mes, index) => (
-                        <option key={index} value={mes}>
+                      {MESES.map((mes) => (
+                        <option key={mes} value={mes}>
                           {mes}
                         </option>
                       ))}
@@ -634,10 +691,14 @@ function AdminRecibosContent() {
                   </div>
 
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-slate-700">
+                    <label
+                      htmlFor="monto-usd"
+                      className="mb-2 block text-sm font-medium text-slate-700"
+                    >
                       Monto en dólares
                     </label>
                     <input
+                      id="monto-usd"
                       type="number"
                       step="0.01"
                       min="0"
@@ -650,10 +711,14 @@ function AdminRecibosContent() {
                   </div>
 
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-slate-700">
+                    <label
+                      htmlFor="fecha-reportada"
+                      className="mb-2 block text-sm font-medium text-slate-700"
+                    >
                       Fecha reportada de la deuda
                     </label>
                     <input
+                      id="fecha-reportada"
                       type="date"
                       value={fechaReportada}
                       onChange={(e) => setFechaReportada(e.target.value)}
@@ -663,11 +728,14 @@ function AdminRecibosContent() {
                   </div>
 
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-slate-700">
+                    <p className="mb-2 block text-sm font-medium text-slate-700">
                       Factura
-                    </label>
+                    </p>
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
-                      <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100 sm:px-4 sm:text-sm">
+                      <label
+                        htmlFor="factura-archivo"
+                        className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100 sm:px-4 sm:text-sm"
+                      >
                         <svg
                           className="h-4 w-4 sm:h-5 sm:w-5"
                           fill="none"
@@ -683,6 +751,7 @@ function AdminRecibosContent() {
                         </svg>
                         Cargar factura
                         <input
+                          id="factura-archivo"
                           type="file"
                           accept="image/*,.pdf"
                           onChange={handleFileChange}
@@ -697,7 +766,7 @@ function AdminRecibosContent() {
                         </span>
                       )}
                       {archivoFactura && !comprimiendo && (
-                        <span className="break-words text-xs text-slate-600 sm:text-sm">
+                        <span className="wrap-break-word text-xs text-slate-600 sm:text-sm">
                           {archivoFactura.name} ({(archivoFactura.size / 1024 / 1024).toFixed(2)} MB)
                         </span>
                       )}
@@ -776,7 +845,7 @@ function AdminRecibosContent() {
                   Monto: {formatearMonto(pagoSeleccionado.montoUsd)}
                 </p>
                 <p className="mt-1 text-slate-800">
-                  Mes(es): {formatearMeses(pagoSeleccionado.meses)}
+                  Mes(es): {formatearMesesNumeros(pagoSeleccionado.meses)}
                 </p>
                 <p className="mt-1 text-slate-800">
                   Comprobante: {pagoSeleccionado.numeroComprobante}
@@ -807,13 +876,9 @@ function AdminRecibosContent() {
               <button
                 onClick={confirmarAccion}
                 disabled={procesando}
-                className={`flex-1 rounded-lg px-4 py-2 font-medium text-white transition-colors disabled:opacity-50 ${
-                  accionConfirmacion === 'aceptar'
-                    ? 'bg-green-600 hover:bg-green-700'
-                    : 'bg-red-600 hover:bg-red-700'
-                }`}
+                className={`flex-1 rounded-lg px-4 py-2 font-medium text-white transition-colors disabled:opacity-50 ${clasesBotonConfirmacion(accionConfirmacion)}`}
               >
-                {procesando ? 'Procesando...' : accionConfirmacion === 'aceptar' ? 'Aceptar' : 'Rechazar'}
+                {textoBotonConfirmacion(procesando, accionConfirmacion)}
               </button>
             </div>
           </div>

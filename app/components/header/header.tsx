@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Image from "next/image";
 import { getOrCreateDeviceId, fetchUnreadAvisosCount } from "@/lib/api";
 
@@ -17,16 +17,15 @@ const logoBuildforge = (
   />
 )
 
+function tieneModoPlataforma(): boolean {
+  return typeof document !== "undefined" && document.cookie.includes("platform_mode=1");
+}
+
 export function Header() {
   const router = useRouter();
   const pathname = usePathname();
   const [isAdmin, setIsAdmin] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [esPlataforma, setEsPlataforma] = useState(false);
-
-  useEffect(() => {
-    setEsPlataforma(document.cookie.includes("platform_mode=1"));
-  }, [pathname]);
 
   useEffect(() => {
     function verificarSesion() {
@@ -36,14 +35,14 @@ export function Header() {
 
     verificarSesion();
     const handleStorageChange = () => verificarSesion();
-    window.addEventListener("storage", handleStorageChange);
-    window.addEventListener("adminLogin", handleStorageChange);
-    window.addEventListener("adminLogout", handleStorageChange);
+    globalThis.addEventListener("storage", handleStorageChange);
+    globalThis.addEventListener("adminLogin", handleStorageChange);
+    globalThis.addEventListener("adminLogout", handleStorageChange);
     const interval = setInterval(verificarSesion, 500);
     return () => {
-      window.removeEventListener("storage", handleStorageChange);
-      window.removeEventListener("adminLogin", handleStorageChange);
-      window.removeEventListener("adminLogout", handleStorageChange);
+      globalThis.removeEventListener("storage", handleStorageChange);
+      globalThis.removeEventListener("adminLogin", handleStorageChange);
+      globalThis.removeEventListener("adminLogout", handleStorageChange);
       clearInterval(interval);
     };
   }, []);
@@ -51,7 +50,7 @@ export function Header() {
   useEffect(() => {
     if (pathname?.startsWith("/admin")) return;
     if (pathname === "/registro") return;
-    if (typeof document !== "undefined" && document.cookie.includes("platform_mode=1")) return;
+    if (tieneModoPlataforma()) return;
 
     function cargarUnread() {
       const deviceId = getOrCreateDeviceId();
@@ -67,22 +66,23 @@ export function Header() {
       cargarUnread();
     };
 
-    window.addEventListener("avisosVisitados", handleAvisosVisitados);
+    globalThis.addEventListener("avisosVisitados", handleAvisosVisitados);
 
     return () => {
       clearInterval(interval);
-      window.removeEventListener("avisosVisitados", handleAvisosVisitados);
+      globalThis.removeEventListener("avisosVisitados", handleAvisosVisitados);
     };
   }, [pathname]);
 
   function handleCerrarSesion() {
     localStorage.removeItem("admin_token");
     setIsAdmin(false);
-    window.dispatchEvent(new Event("adminLogout"));
+    globalThis.dispatchEvent(new Event("adminLogout"));
     router.push("/");
   }
 
   const esAdminRoute = pathname?.startsWith("/admin");
+  const esPlataforma = tieneModoPlataforma();
   const esPlataformaUi = esPlataforma || pathname === "/registro";
 
   const logoIcon = (
@@ -92,6 +92,78 @@ export function Header() {
       </svg>
     </span>
   );
+
+  let marcaIzquierda: ReactNode;
+  if (esAdminRoute) {
+    marcaIzquierda = (
+      <div className="flex items-center gap-3">
+        {logoBuildforge}
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-white max-md:bg-white/20 md:bg-green-600">
+          <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+          </svg>
+        </span>
+        <span className="text-lg font-semibold tracking-tight max-md:text-white md:text-slate-800">
+          Condominio Residenciales
+        </span>
+      </div>
+    );
+  } else if (esPlataformaUi) {
+    marcaIzquierda = (
+      <Link href="/" className="flex min-w-0 items-center gap-2 sm:gap-3">
+        {logoBuildforge}
+        <div className="min-w-0 flex flex-col justify-center leading-tight">
+          <span className="text-sm font-semibold tracking-tight text-slate-800 sm:text-base md:text-lg">
+            Condominio Platform
+          </span>
+          <span className="text-[10px] text-slate-500 sm:text-xs">Gestión multi-edificio</span>
+        </div>
+      </Link>
+    );
+  } else {
+    marcaIzquierda = (
+      <Link href="/" className="flex min-w-0 items-center gap-2 sm:gap-3">
+        {logoBuildforge}
+        {logoIcon}
+        <div className="min-w-0 flex flex-col justify-center leading-tight">
+          <span className="text-sm font-semibold tracking-tight text-slate-800 sm:text-base md:text-lg">
+            Residencia Sofia
+          </span>
+          <span className="text-[10px] text-slate-500 sm:text-xs">Portal de residentes</span>
+        </div>
+      </Link>
+    );
+  }
+
+  let accionSesion: ReactNode;
+  if (isAdmin) {
+    accionSesion = (
+      <button
+        onClick={handleCerrarSesion}
+        className="rounded-lg px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 max-md:bg-[#7c3aed] max-md:text-white max-md:hover:bg-[#6d28d9] max-md:focus:ring-purple-400 md:bg-green-600 md:text-white md:hover:bg-green-700 md:focus:ring-green-500"
+      >
+        Cerrar sesión
+      </button>
+    );
+  } else if (esPlataformaUi) {
+    accionSesion = (
+      <Link
+        href="/registro"
+        className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700"
+      >
+        Registrar edificio
+      </Link>
+    );
+  } else {
+    accionSesion = (
+      <Link
+        href="/admin/login"
+        className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+      >
+        Iniciar sesión
+      </Link>
+    );
+  }
 
   const bellIcon = (
     <Link
@@ -116,71 +188,17 @@ export function Header() {
     <header
       className={`sticky top-0 z-50 flex h-16 items-center justify-between px-4 py-3 backdrop-blur sm:px-6
         ${esAdminRoute
-          ? "max-md:bg-[#5b21b6] max-md:border-[#6d28d9] max-md:border-b md:border-slate-200/80 md:bg-white/95 md:supports-[backdrop-filter]:bg-white/80"
-          : "border-b border-slate-200/80 bg-white/95 supports-[backdrop-filter]:bg-white/80"
+          ? "max-md:bg-[#5b21b6] max-md:border-[#6d28d9] max-md:border-b md:border-slate-200/80 md:bg-white/95 md:supports-backdrop-filter:bg-white/80"
+          : "border-b border-slate-200/80 bg-white/95 supports-backdrop-filter:bg-white/80"
         }`}
     >
       {/* Izquierda: marca / título (solo un bloque) */}
-      {esAdminRoute ? (
-        <div className="flex items-center gap-3">
-          {logoBuildforge}
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-white max-md:bg-white/20 md:bg-green-600">
-            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-            </svg>
-          </span>
-          <span className="text-lg font-semibold tracking-tight max-md:text-white md:text-slate-800">
-            Condominio Residencia Sofia
-          </span>
-        </div>
-      ) : esPlataformaUi ? (
-        <Link href="/" className="flex min-w-0 items-center gap-2 sm:gap-3">
-          {logoBuildforge}
-          <div className="min-w-0 flex flex-col justify-center leading-tight">
-            <span className="text-sm font-semibold tracking-tight text-slate-800 sm:text-base md:text-lg">
-              Condominio Platform
-            </span>
-            <span className="text-[10px] text-slate-500 sm:text-xs">Gestión multi-edificio</span>
-          </div>
-        </Link>
-      ) : (
-        <Link href="/" className="flex min-w-0 items-center gap-2 sm:gap-3">
-          {logoBuildforge}
-          {logoIcon}
-          <div className="min-w-0 flex flex-col justify-center leading-tight">
-            <span className="text-sm font-semibold tracking-tight text-slate-800 sm:text-base md:text-lg">
-              Residencia Sofia
-            </span>
-            <span className="text-[10px] text-slate-500 sm:text-xs">Portal de residentes</span>
-          </div>
-        </Link>
-      )}
-  
+      {marcaIzquierda}
+
       {/* Derecha: notificaciones + sesión (solo un bloque) */}
       <div className="flex items-center gap-3">
         {!esAdminRoute && !esPlataformaUi && bellIcon}
-        {isAdmin ? (
-          <button
-            onClick={handleCerrarSesion}
-            className="rounded-lg px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 max-md:bg-[#7c3aed] max-md:text-white max-md:hover:bg-[#6d28d9] max-md:focus:ring-purple-400 md:bg-green-600 md:text-white md:hover:bg-green-700 md:focus:ring-green-500"
-          >
-            Cerrar sesión
-          </button>
-        ) : esPlataformaUi ? (
-          <Link
-            href="/registro"
-            className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700"
-          >
-            Registrar edificio
-          </Link>
-        ) : (
-          <Link
-            href="/admin/login"
-            className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-          >
-            Iniciar sesión
-          </Link>
-        )}
+        {accionSesion}
       </div>
     </header>
   );
