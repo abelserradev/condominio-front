@@ -28,16 +28,21 @@ Frontend Next.js para la plataforma SaaS multi-tenant de gestión de condominios
 
 ## Instalación
 
-### Con Docker (recomendado)
+### Con Docker
 
 ```bash
 cd frontend/condominio
-docker compose up --build
+
+# Construir la imagen
+docker build -t condominio-frontend .
+
+# Ejecutar (reemplaza la URL del backend según tu entorno)
+docker run -p 3000:3000 -e NEXT_PUBLIC_API_URL=http://localhost:3001 condominio-frontend
 ```
 
 La aplicación estará disponible en el puerto **3000**.
 
-### Sin Docker
+### Sin Docker (recomendado para desarrollo)
 
 1. Tener el backend corriendo en http://localhost:3001
 2. Crear el archivo `.env.local` (ver sección de variables)
