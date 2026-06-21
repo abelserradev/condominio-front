@@ -6,6 +6,13 @@ import { checkBuildingSlug, registerBuilding, type RegisterBuildingResult } from
 
 type SlugEstado = "idle" | "checking" | "ok" | "taken" | "reserved" | "invalid" | "network";
 
+function esDominioPublico(host: string): boolean {
+  if (!host || host === "localhost" || host === "127.0.0.1") return false;
+  if (!host.includes(".")) return false;
+  if (/^[0-9a-f]{8,}$/i.test(host)) return false;
+  return true;
+}
+
 export default function RegistroPage() {
   const [paso, setPaso] = useState(1);
   const [slug, setSlug] = useState("");
@@ -28,7 +35,7 @@ export default function RegistroPage() {
   useEffect(() => {
     if (process.env.NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN) return;
     const host = globalThis.window.location.hostname.replace(/^www\./, "");
-    if (host && host !== "localhost" && host !== "127.0.0.1") {
+    if (esDominioPublico(host)) {
       setDominioPlataforma(host);
     }
   }, []);
