@@ -26,6 +26,18 @@ export function Header() {
   const pathname = usePathname();
   const [isAdmin, setIsAdmin] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  // Siempre false hasta que el effect confirme en cliente — evita hydration mismatch
+  // porque document.cookie no existe durante SSR
+  const [esPlataformaClient, setEsPlataformaClient] = useState(false);
+
+  useEffect(() => {
+    // Ahora sí estamos en el cliente: leer cookie es seguro
+    // Wrapped en función para evitar setState directo en effect body
+    function actualizarModo() {
+      setEsPlataformaClient(tieneModoPlataforma());
+    }
+    actualizarModo();
+  }, [pathname]);
 
   useEffect(() => {
     function verificarSesion() {
@@ -82,7 +94,7 @@ export function Header() {
   }
 
   const esAdminRoute = pathname?.startsWith("/admin");
-  const esPlataforma = tieneModoPlataforma();
+  const esPlataforma = esPlataformaClient;
   const esPlataformaUi = esPlataforma || pathname === "/registro";
 
   const logoIconEdificio = (

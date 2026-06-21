@@ -1,6 +1,15 @@
 const getBaseUrl = (): string => {
-  const url = process.env.NEXT_PUBLIC_API_URL;
-  if (url && url.startsWith("http")) return url;
+  const raw = process.env.NEXT_PUBLIC_API_URL;
+  if (raw?.startsWith("http")) {
+    // Trailing slash causa un 302 en Traefik que llega sin CORS headers.
+    // En producción se fuerza HTTPS para evitar el redirect HTTP→HTTPS.
+    const clean = raw.replace(/\/+$/, "");
+    const isLocalDev = clean.includes("localhost") || clean.includes("127.0.0.1");
+    if (!isLocalDev && clean.startsWith("http://")) {
+      return clean.replace("http://", "https://");
+    }
+    return clean;
+  }
   if (typeof window !== "undefined") return "/api";
   return "http://localhost:3001";
 };

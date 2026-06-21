@@ -140,7 +140,7 @@ export default function RegistroPage() {
                   value={slug}
                   onChange={(e) => setSlug(e.target.value.toLowerCase())}
                   placeholder="torre-norte"
-                  pattern="[a-z0-9-]+"
+                  pattern="[-a-z0-9]+"
                   className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2"
                 />
                 <span className="shrink-0 text-sm text-slate-400">.tuapp.com</span>
