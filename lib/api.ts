@@ -1,20 +1,13 @@
+import { resolveBackendUrl } from "./backend-url";
+
 const getBaseUrl = (): string => {
-  // En el browser siempre same-origin (/api → rewrite interno en Next).
-  // Evita CORS y redirects rotos de api.buildforge.work en producción.
   if (globalThis.window !== undefined) {
     return "/api";
   }
 
-  const raw = process.env.API_PROXY_TARGET ?? process.env.NEXT_PUBLIC_API_URL;
-  if (raw?.startsWith("http")) {
-    const clean = raw.replace(/\/+$/, "");
-    const isLocalDev = clean.includes("localhost") || clean.includes("127.0.0.1");
-    if (!isLocalDev && clean.startsWith("http://")) {
-      return clean.replace("http://", "https://");
-    }
-    return clean;
-  }
-  return "http://localhost:3001";
+  return resolveBackendUrl(
+    process.env.API_PROXY_TARGET ?? process.env.NEXT_PUBLIC_API_URL,
+  );
 };
 
 /**
