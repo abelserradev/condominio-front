@@ -18,12 +18,12 @@ export function BannerPublicitario() {
           rel="noopener noreferrer"
           className="block overflow-hidden rounded-xl shadow-lg transition-shadow hover:shadow-xl"
         >
-          <div className="relative h-12 overflow-hidden sm:h-16 md:h-64">
+          <div className="relative h-16 overflow-hidden sm:h-20 md:h-24">
             <Image
-              src="/logo-728x90px.png"
-              alt="BuildForge - Code Create Conquer"
+              src="/publicidad1.png"
+              alt="BuildForge - Diseño, Creación, Innovación"
               fill
-              className="object-cover"
+              className="object-cover object-center"
             />
           </div>
         </a>
