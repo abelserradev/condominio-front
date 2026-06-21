@@ -1,8 +1,12 @@
 const getBaseUrl = (): string => {
-  const raw = process.env.NEXT_PUBLIC_API_URL;
+  // En el browser siempre same-origin (/api → rewrite interno en Next).
+  // Evita CORS y redirects rotos de api.buildforge.work en producción.
+  if (globalThis.window !== undefined) {
+    return "/api";
+  }
+
+  const raw = process.env.API_PROXY_TARGET ?? process.env.NEXT_PUBLIC_API_URL;
   if (raw?.startsWith("http")) {
-    // Trailing slash causa un 302 en Traefik que llega sin CORS headers.
-    // En producción se fuerza HTTPS para evitar el redirect HTTP→HTTPS.
     const clean = raw.replace(/\/+$/, "");
     const isLocalDev = clean.includes("localhost") || clean.includes("127.0.0.1");
     if (!isLocalDev && clean.startsWith("http://")) {
@@ -10,7 +14,6 @@ const getBaseUrl = (): string => {
     }
     return clean;
   }
-  if (typeof window !== "undefined") return "/api";
   return "http://localhost:3001";
 };
 
