@@ -20,6 +20,8 @@ RUN ./node_modules/.bin/next build
 FROM base AS runner
 ENV NODE_ENV=production
 ENV PORT=3000
+# URL interna del backend en la red Docker de Coolify (ej. http://nombre-servicio-api:3001)
+ENV API_PROXY_TARGET=""
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
 COPY --from=build /app/public ./public
 COPY --from=build --chown=nextjs:nodejs /app/.next/standalone ./

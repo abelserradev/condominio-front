@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { checkBuildingSlug, registerBuilding, type RegisterBuildingResult } from "@/lib/api";
 
-type SlugEstado = "idle" | "checking" | "ok" | "taken" | "reserved" | "invalid";
+type SlugEstado = "idle" | "checking" | "ok" | "taken" | "reserved" | "invalid" | "network";
 
 export default function RegistroPage() {
   const [paso, setPaso] = useState(1);
@@ -19,8 +19,19 @@ export default function RegistroPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resultado, setResultado] = useState<RegisterBuildingResult | null>(null);
+  const [dominioPlataforma, setDominioPlataforma] = useState(
+    process.env.NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN ?? "buildforge.work",
+  );
 
   const slugNorm = slug.trim().toLowerCase();
+
+  useEffect(() => {
+    if (process.env.NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN) return;
+    const host = globalThis.window.location.hostname.replace(/^www\./, "");
+    if (host && host !== "localhost" && host !== "127.0.0.1") {
+      setDominioPlataforma(host);
+    }
+  }, []);
 
   const verificarSlug = useCallback(async (value: string) => {
     const s = value.trim().toLowerCase();
@@ -35,13 +46,13 @@ export default function RegistroPage() {
     setSlugEstado("checking");
     try {
       const res = await checkBuildingSlug(s);
-      if (!res.disponible) {
-        setSlugEstado(res.motivo === "reservado" ? "reserved" : "taken");
-      } else {
+      if (res.disponible) {
         setSlugEstado("ok");
+      } else {
+        setSlugEstado(res.motivo === "reservado" ? "reserved" : "taken");
       }
     } catch {
-      setSlugEstado("idle");
+      setSlugEstado("network");
     }
   }, []);
 
@@ -64,8 +75,8 @@ export default function RegistroPage() {
         slug: slugNorm,
         nombre: nombre.trim(),
         direccion: direccion.trim() || undefined,
-        totalPisos: parseInt(totalPisos, 10),
-        apartamentosPorPiso: parseInt(apartamentosPorPiso, 10),
+        totalPisos: Number.parseInt(totalPisos, 10),
+        apartamentosPorPiso: Number.parseInt(apartamentosPorPiso, 10),
         adminUsuario: adminUsuario.trim(),
         adminPassword,
       });
@@ -131,19 +142,19 @@ export default function RegistroPage() {
         {paso === 1 && (
           <>
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">
+              <label htmlFor="registro-slug" className="mb-1 block text-sm font-medium text-slate-700">
                 Subdominio del portal
               </label>
               <div className="flex items-center gap-1">
                 <input
+                  id="registro-slug"
                   required
                   value={slug}
                   onChange={(e) => setSlug(e.target.value.toLowerCase())}
                   placeholder="torre-norte"
-                  pattern="[-a-z0-9]+"
                   className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2"
                 />
-                <span className="shrink-0 text-sm text-slate-400">.tuapp.com</span>
+                <span className="shrink-0 text-sm text-slate-400">.{dominioPlataforma}</span>
               </div>
               {slugEstado === "checking" && (
                 <p className="mt-1 text-xs text-slate-500">Verificando…</p>
@@ -160,12 +171,16 @@ export default function RegistroPage() {
               {slugEstado === "invalid" && slugNorm.length > 0 && (
                 <p className="mt-1 text-xs text-red-600">Solo minúsculas, números y guiones</p>
               )}
+              {slugEstado === "network" && (
+                <p className="mt-1 text-xs text-red-600">No se pudo verificar disponibilidad. Intenta de nuevo.</p>
+              )}
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">
+              <label htmlFor="registro-nombre" className="mb-1 block text-sm font-medium text-slate-700">
                 Nombre del edificio
               </label>
               <input
+                id="registro-nombre"
                 required
                 minLength={3}
                 value={nombre}
@@ -175,10 +190,11 @@ export default function RegistroPage() {
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">
+              <label htmlFor="registro-direccion" className="mb-1 block text-sm font-medium text-slate-700">
                 Dirección (opcional)
               </label>
               <input
+                id="registro-direccion"
                 value={direccion}
                 onChange={(e) => setDireccion(e.target.value)}
                 className="w-full rounded-lg border border-slate-300 px-3 py-2"
@@ -186,8 +202,9 @@ export default function RegistroPage() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="mb-1 block text-sm text-slate-600">Pisos</label>
+                <label htmlFor="registro-total-pisos" className="mb-1 block text-sm text-slate-600">Pisos</label>
                 <input
+                  id="registro-total-pisos"
                   type="number"
                   min={1}
                   max={50}
@@ -198,8 +215,9 @@ export default function RegistroPage() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm text-slate-600">Aptos/piso</label>
+                <label htmlFor="registro-apartamentos-piso" className="mb-1 block text-sm text-slate-600">Aptos/piso</label>
                 <input
+                  id="registro-apartamentos-piso"
                   type="number"
                   min={1}
                   max={20}
@@ -223,13 +241,14 @@ export default function RegistroPage() {
         {paso === 2 && (
           <>
             <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
-              Portal: <strong>{slugNorm}.tuapp.com</strong> — {nombre}
+              Portal: <strong>{slugNorm}.{dominioPlataforma}</strong> — {nombre}
             </p>
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">
+              <label htmlFor="registro-admin-usuario" className="mb-1 block text-sm font-medium text-slate-700">
                 Usuario administrador
               </label>
               <input
+                id="registro-admin-usuario"
                 required
                 minLength={3}
                 value={adminUsuario}
@@ -239,10 +258,11 @@ export default function RegistroPage() {
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">
+              <label htmlFor="registro-admin-password" className="mb-1 block text-sm font-medium text-slate-700">
                 Contraseña
               </label>
               <input
+                id="registro-admin-password"
                 type="password"
                 required
                 minLength={6}
