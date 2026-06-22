@@ -21,7 +21,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'pnpm'
 
       - name: Install dependencies
@@ -33,8 +33,8 @@ jobs:
       - name: TypeCheck
         run: pnpm run typecheck
 
-  build:
-    name: Build
+  build-and-test:
+    name: Build & Test
     runs-on: ubuntu-latest
     needs: lint-and-typecheck
     env:
@@ -49,7 +49,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'pnpm'
 
       - name: Install dependencies
@@ -58,6 +58,9 @@ jobs:
       # next build valida tipos y rutas además de compilar
       - name: Build
         run: pnpm run build
+
+      - name: Unit tests
+        run: pnpm run test
 
   security-audit:
     name: Security Audit
@@ -71,7 +74,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'pnpm'
 
       - name: Install dependencies

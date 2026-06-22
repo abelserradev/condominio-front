@@ -10,6 +10,7 @@
     "lint": "eslint",
     "lint:check": "eslint",
     "typecheck": "tsc --noEmit",
+    "test": "jest --passWithNoTests --forceExit",
     "prepare": "husky || true"
   },
   "lint-staged": {
@@ -29,11 +30,24 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/jest": "^30.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.1.4",
     "husky": "^9.0.0",
+    "jest": "^30.0.0",
     "lint-staged": "^16.0.0",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "modulePathIgnorePatterns": [
+      "<rootDir>/.next/"
+    ],
+    "testMatch": [
+      "**/__tests__/**/*.test.ts",
+      "**/__tests__/**/*.test.tsx"
+    ],
+    "passWithNoTests": true
   }
 }
