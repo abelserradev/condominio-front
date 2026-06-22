@@ -2,38 +2,74 @@
 
 Dominio: **buildforge.work**
 
-## Coolify: Dockerfile
+## Error `ECONNREFUSED` al proxy `/api`
 
-1. **+ New** → Dockerfile (o Docker Compose con un servicio)
-2. **Source**: Git → este repo
-3. **Dockerfile**: raíz del proyecto
-4. **Dominios**: `https://buildforge.work`
-5. **Variables de entorno** (runtime, obligatorias):
+Si en los logs del frontend ves:
 
-| Variable | Ejemplo | Descripción |
-|----------|---------|-------------|
-| `API_PROXY_TARGET` | `http://nombre-contenedor-api:3001` | URL **interna** del backend en la red Docker de Coolify. El frontend proxy `/api` → backend por aquí. |
-| `NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN` | `buildforge.work` | Dominio raíz para subdominios en `/registro`. |
-| `FRONTEND_URL` (backend) | `https://buildforge.work` | Origen permitido en CORS del backend. |
+```
+Failed to proxy http://api:3001/... ECONNREFUSED
+```
 
-`NEXT_PUBLIC_API_URL` ya **no es necesaria** en el browser: las peticiones van por `/api` (same-origin).
+El frontend **no está en la misma red Docker** que el stack del API. El hostname `api` solo existe dentro del compose del backend.
 
-## Conectar frontend con backend en Coolify
+### Solución A — Conectar redes en Coolify (app frontend separada)
 
-1. En el servicio **frontend**, ve a **Network** / **Connect to Predefined Network** y conéctalo a la red del backend.
-2. Obtén el hostname interno del contenedor API (nombre del servicio o contenedor en Coolify).
-3. Configura `API_PROXY_TARGET=http://<hostname-interno>:3001`.
+1. Abre el stack **backend** (compose) en Coolify → anota el nombre del **proyecto/recurso** (ej. `wso48084wggc80oc4gk0wwcc`).
+2. Abre **`condominio-front`** → **Configuration** → **Advanced** (o **Network**).
+3. **Connect to Predefined Network** → selecciona la red del compose del backend.
+4. Mantén `API_PROXY_TARGET=http://api:3001` (o prueba `http://condominio-api:3001`).
+5. **Redeploy** el frontend.
 
-## Backend (obligatorio para registro)
+### Solución B — Workaround vía IP del host (rápido)
 
-En el servicio API de Coolify:
+Si el API publica el puerto `3001` en el servidor (tu compose tiene `3001:3001`), usa la IP del servidor Coolify:
 
-- `FRONTEND_URL=https://buildforge.work`
-- `PLATFORM_ROOT_DOMAIN=buildforge.work` (URLs de portal tipo `slug.buildforge.work`)
+```
+API_PROXY_TARGET=http://192.168.0.168:3001
+```
 
-## Problema conocido: api.buildforge.work en bucle 307
+(Sustituye por la IP real de tu servidor donde corre Coolify.)
 
-Si `https://api.buildforge.work` responde 307 en bucle, las llamadas directas desde el browser fallan por CORS.
-La solución es usar el proxy `/api` del frontend con `API_PROXY_TARGET` apuntando al backend **interno**, no a la URL pública.
+En Linux Docker también suele funcionar:
 
-Para arreglar la URL pública del API, revisa en Coolify/Traefik que no haya reglas HTTPS duplicadas ni redirect al mismo path.
+```
+API_PROXY_TARGET=http://172.17.0.1:3001
+```
+
+Redeploy del frontend tras cambiar la variable.
+
+### Solución C — Frontend en el mismo compose (recomendado a largo plazo)
+
+`docker-compose.prod.yml` incluye el servicio `frontend` en la misma red que `api`.
+Despliega **un solo** recurso Docker Compose en Coolify en lugar de dos apps separadas.
+
+---
+
+## Variables de entorno
+
+### Frontend (`condominio-front` o servicio `frontend` del compose)
+
+| Variable | Valor |
+|----------|--------|
+| `API_PROXY_TARGET` | `http://api:3001` (misma red) **o** `http://IP-SERVIDOR:3001` (workaround) |
+| `NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN` | `buildforge.work` |
+
+Dominio en Coolify: `https://buildforge.work`
+
+### Backend (compose / API)
+
+| Variable | Valor |
+|----------|--------|
+| `FRONTEND_URL` | `https://buildforge.work` |
+| `PLATFORM_ROOT_DOMAIN` | `buildforge.work` |
+
+No uses URLs con ID de contenedor (`1766ef8cebb0`, `02dcbbffa1e6`) en `FRONTEND_URL`.
+
+---
+
+## Comprobar que funciona
+
+```
+GET https://buildforge.work/api/buildings/check-slug/hola
+→ 200 {"disponible":true}
+```
