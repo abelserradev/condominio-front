@@ -69,6 +69,11 @@ export function AdminSidebar({ abierto = false, onCerrar }: Readonly<AdminSideba
       onCerrar?.();
     }
 
+    function irAReglamentos() {
+      router.push("/admin/reglamentos");
+      onCerrar?.();
+    }
+
     function irAPropietarios() {
       router.push("/admin/propietarios");
       onCerrar?.();
@@ -195,6 +200,13 @@ export function AdminSidebar({ abierto = false, onCerrar }: Readonly<AdminSideba
                   className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent"
                 >
                   Avisos
+                </button>
+                <button
+                  type="button"
+                  onClick={irAReglamentos}
+                  className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent"
+                >
+                  Reglamentos
                 </button>
                 <button
                   type="button"

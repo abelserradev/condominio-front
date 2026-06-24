@@ -5,9 +5,12 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
   fetchSuperBuilding,
+  fetchSuperBuildingAdmin,
   renovarSuperBuilding,
+  resetSuperBuildingAdmin,
   suspenderSuperBuilding,
   type SuperBuilding,
+  type BuildingAdminInfo,
 } from "@/lib/api";
 import { SuscripcionBadge, diasHasta } from "@/app/components/super/suscripcion-badge";
 import { RenovarModal } from "@/app/components/super/renovar-modal";
@@ -16,14 +19,24 @@ export default function SuperEdificioDetailPage() {
   const params = useParams();
   const id = params.id as string;
   const [edificio, setEdificio] = useState<SuperBuilding | null>(null);
+  const [adminInfo, setAdminInfo] = useState<BuildingAdminInfo | null>(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [suspending, setSuspending] = useState(false);
+  const [nuevaPassword, setNuevaPassword] = useState("");
+  const [reseteando, setReseteando] = useState(false);
+  const [resetOk, setResetOk] = useState<string | null>(null);
 
   const cargar = useCallback(() => {
     setCargando(true);
-    fetchSuperBuilding(id)
-      .then(setEdificio)
+    Promise.all([
+      fetchSuperBuilding(id),
+      fetchSuperBuildingAdmin(id).catch(() => null),
+    ])
+      .then(([building, admin]) => {
+        setEdificio(building);
+        setAdminInfo(admin);
+      })
       .catch((e) => setError(e instanceof Error ? e.message : "Error"))
       .finally(() => setCargando(false));
   }, [id]);
@@ -42,6 +55,26 @@ export default function SuperEdificioDetailPage() {
       setError(e instanceof Error ? e.message : "Error al suspender");
     } finally {
       setSuspending(false);
+    }
+  }
+
+  async function handleResetPassword(e: React.FormEvent) {
+    e.preventDefault();
+    if (nuevaPassword.length < 6) {
+      setError("La contraseña debe tener al menos 6 caracteres");
+      return;
+    }
+    setReseteando(true);
+    setResetOk(null);
+    setError(null);
+    try {
+      const res = await resetSuperBuildingAdmin(id, nuevaPassword);
+      setResetOk(`Contraseña actualizada para ${res.usuario}`);
+      setNuevaPassword("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error al restablecer contraseña");
+    } finally {
+      setReseteando(false);
     }
   }
 
@@ -107,6 +140,50 @@ export default function SuperEdificioDetailPage() {
           )}
         </div>
       </div>
+
+      <section className="mb-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h3 className="mb-4 font-semibold text-slate-800">Administrador del edificio</h3>
+        {adminInfo ? (
+          <div className="space-y-4 text-sm">
+            <p>
+              <span className="text-slate-500">Correo de acceso:</span>{" "}
+              <strong>{adminInfo.email ?? adminInfo.usuario}</strong>
+            </p>
+            <p>
+              <span className="text-slate-500">Portal:</span>{" "}
+              <a href={adminInfo.portalUrl} className="text-green-700 underline" target="_blank" rel="noreferrer">
+                {adminInfo.portalUrl}
+              </a>
+            </p>
+            <form onSubmit={handleResetPassword} className="flex flex-wrap items-end gap-3">
+              <div className="min-w-[200px] flex-1">
+                <label htmlFor="super-nueva-password" className="mb-1 block text-slate-600">
+                  Nueva contraseña
+                </label>
+                <input
+                  id="super-nueva-password"
+                  type="password"
+                  minLength={6}
+                  value={nuevaPassword}
+                  onChange={(e) => setNuevaPassword(e.target.value)}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                  placeholder="Mínimo 6 caracteres"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={reseteando || nuevaPassword.length < 6}
+                className="rounded-lg bg-slate-800 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+              >
+                {reseteando ? "Guardando…" : "Restablecer contraseña"}
+              </button>
+            </form>
+            {resetOk && <p className="text-green-700">{resetOk}</p>}
+          </div>
+        ) : (
+          <p className="text-sm text-slate-500">No se encontró administrador vinculado a este edificio.</p>
+        )}
+      </section>
 
       {edificio.historialRenovaciones && edificio.historialRenovaciones.length > 0 && (
         <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">

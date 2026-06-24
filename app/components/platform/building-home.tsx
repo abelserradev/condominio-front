@@ -38,11 +38,9 @@ export function BuildingHome() {
         <Suspense fallback={null}>
           <ReporteOkBanner />
         </Suspense>
-      </div>
 
-      <BannerPublicitario />
+        <BannerPublicitario />
 
-      <div className="mx-auto max-w-3xl space-y-8">
         <TasaBcvDelDia />
 
         <section>

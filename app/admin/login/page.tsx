@@ -81,11 +81,11 @@ export default function AdminLoginPage() {
               <path d="M256 256a112 112 0 1 0 0-224 112 112 0 1 0 0 224zm-48 80c-74.2 0-134.6 60.4-134.6 134.6 0 22.6 18.3 40.9 40.9 40.9h283.4c22.6 0 40.9-18.3 40.9-40.9C438.6 396.4 378.2 336 304 336H208z" />
             </svg>
             <input
-              autoComplete="off"
+              autoComplete="email"
               id="usuario"
               name="usuario"
-              type="text"
-              placeholder="Usuario"
+              type="email"
+              placeholder="Correo electrónico"
               value={usuario}
               onChange={(e) => setUsuario(e.target.value)}
               required

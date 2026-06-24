@@ -10,19 +10,21 @@ const getBaseUrl = (): string => {
   );
 };
 
+const BUILDING_SLUG_COOKIE_RE = /(?:^|;\s*)building_slug=([^;]+)/;
+
 /**
  * Lee el slug del edificio actual desde la cookie que inyecta el middleware.
  * Fallback al valor de entorno para desarrollo sin subdominio.
  */
 function getBuildingSlug(): string {
   const fallback = process.env.NEXT_PUBLIC_DEV_BUILDING_SLUG ?? "residencia-sofia";
-  if (typeof document === "undefined") return fallback;
-  const match = document.cookie.match(/(?:^|;\s*)building_slug=([^;]+)/);
-  return match ? decodeURIComponent(match[1]) : fallback;
+  if (globalThis.document === undefined) return fallback;
+  const match = BUILDING_SLUG_COOKIE_RE.exec(globalThis.document.cookie);
+  return match?.[1] ? decodeURIComponent(match[1]) : fallback;
 }
 
 function getAuthToken(): string | null {
-  if (typeof window === "undefined") {
+  if (globalThis.window === undefined) {
     return null;
   }
   try {
@@ -249,6 +251,52 @@ export function getComprobanteUrl(fileId: string): string {
   return `${getBaseUrl()}/files/${fileId}`;
 }
 
+export function getFileUrl(fileId: string): string {
+  return getComprobanteUrl(fileId);
+}
+
+export type Reglamento = {
+  nombre: string;
+  fileId: string;
+  actualizadoEn: string;
+};
+
+export async function fetchReglamento(): Promise<Reglamento | null> {
+  const res = await fetch(`${getBaseUrl()}/reglamentos`, {
+    headers: { "x-building-slug": getBuildingSlug() },
+    cache: "no-store",
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error("Error al cargar reglamento");
+  return res.json();
+}
+
+export async function uploadReglamento(archivo: File): Promise<Reglamento> {
+  const formData = new FormData();
+  formData.append("archivo", archivo);
+  const res = await fetch(`${getBaseUrl()}/reglamentos`, {
+    method: "POST",
+    headers: getBaseHeaders(),
+    body: formData,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { message?: string }).message ?? "Error al subir reglamento");
+  }
+  return res.json();
+}
+
+export async function deleteReglamento(): Promise<void> {
+  const res = await fetch(`${getBaseUrl()}/reglamentos`, {
+    method: "DELETE",
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { message?: string }).message ?? "Error al eliminar reglamento");
+  }
+}
+
 export type LoginResponse = {
   access_token: string;
   rol: string;
@@ -325,7 +373,7 @@ export type Apartment = {
 };
 
 export async function fetchApartments(piso?: number): Promise<Apartment[]> {
-  const params = piso != null ? `?piso=${piso}` : "";
+  const params = typeof piso === "number" ? `?piso=${piso}` : "";
   const res = await fetch(`${getBaseUrl()}/apartments${params}`, {
     headers: { "x-building-slug": getBuildingSlug() },
   });
@@ -438,7 +486,7 @@ export async function fetchAvisos(): Promise<Aviso[]> {
 const AVISOS_DEVICE_ID_KEY = "avisos_device_id";
 
 export function getOrCreateDeviceId(): string {
-  if (typeof window === "undefined") return "";
+  if (globalThis.window === undefined) return "";
   let id = localStorage.getItem(AVISOS_DEVICE_ID_KEY);
   if (!id) {
     id = `d_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
@@ -580,7 +628,7 @@ export async function crearSuperBuilding(data: {
   nombre: string;
   totalPisos: number;
   apartamentosPorPiso: number;
-  adminUsuario: string;
+  adminEmail: string;
   adminPassword: string;
   direccion?: string;
   datosContactoPago?: string;
@@ -603,6 +651,7 @@ export type RegisterBuildingResult = {
   portalUrl: string;
   trialHasta: string;
   buildingId: string;
+  adminEmail?: string;
 };
 
 /** Verifica disponibilidad de subdominio — no requiere contexto de edificio */
@@ -623,7 +672,7 @@ export async function registerBuilding(data: {
   nombre: string;
   totalPisos: number;
   apartamentosPorPiso: number;
-  adminUsuario: string;
+  adminEmail: string;
   adminPassword: string;
   direccion?: string;
 }): Promise<RegisterBuildingResult> {
@@ -644,6 +693,39 @@ export async function registerBuilding(data: {
     throw new Error(
       Array.isArray(msg) ? msg.join(", ") : (msg ?? "Error al registrar edificio"),
     );
+  }
+  return res.json();
+}
+
+export type BuildingAdminInfo = {
+  usuario: string;
+  email?: string;
+  portalUrl: string;
+};
+
+export async function fetchSuperBuildingAdmin(id: string): Promise<BuildingAdminInfo> {
+  const res = await fetch(`${getBaseUrl()}/super/buildings/${id}/admin`, {
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { message?: string }).message ?? "Error al cargar admin");
+  }
+  return res.json();
+}
+
+export async function resetSuperBuildingAdmin(
+  id: string,
+  nuevaPassword: string,
+): Promise<{ ok: true; usuario: string }> {
+  const res = await fetch(`${getBaseUrl()}/super/buildings/${id}/reset-admin`, {
+    method: "PATCH",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ nuevaPassword }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { message?: string }).message ?? "Error al restablecer contraseña");
   }
   return res.json();
 }
