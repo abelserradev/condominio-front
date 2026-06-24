@@ -459,7 +459,9 @@ async function ejecutarLogin(
 
 /** SuperAdmin en dominio raíz — sin contexto de edificio. */
 export async function loginPlataforma(usuario: string, contraseña: string): Promise<LoginResponse> {
-  return ejecutarLogin(usuario, contraseña, {});
+  return ejecutarLogin(usuario, contraseña, {
+    "x-platform-mode": "true",
+  });
 }
 
 /** Admin / propietario en portal del condominio — requiere slug del tenant. */
