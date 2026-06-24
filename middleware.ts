@@ -36,6 +36,15 @@ function extractBuildingSlug(host: string): string {
 export function middleware(req: NextRequest): NextResponse {
   const host = hostSinPuerto(req);
   const esPlataforma = isPlatformRoot(host);
+  const pathname = req.nextUrl.pathname;
+
+  if (esPlataforma && pathname === "/admin/login") {
+    return NextResponse.redirect(new URL("/super/login", req.url), 307);
+  }
+  if (!esPlataforma && pathname === "/super/login") {
+    return NextResponse.redirect(new URL("/admin/login", req.url), 307);
+  }
+
   const requestHeaders = new Headers(req.headers);
   const response = NextResponse.next({
     request: { headers: requestHeaders },

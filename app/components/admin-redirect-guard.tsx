@@ -24,10 +24,11 @@ export function AdminRedirectGuard({ children }: { children: React.ReactNode }) 
 
     const esRutaAdmin = pathname?.startsWith("/admin");
     const esLogin = pathname === "/admin/login";
+    const esSuperLogin = pathname === "/super/login";
     const esRegistro = pathname === "/registro";
     const esSuper = pathname?.startsWith("/super");
 
-    if ((!esRutaAdmin || esLogin) && !esRegistro && !esSuper) {
+    if ((!esRutaAdmin || esLogin) && !esRegistro && !esSuper && !esSuperLogin) {
       router.replace(ADMIN_INICIO);
     }
   }, [pathname, router]);

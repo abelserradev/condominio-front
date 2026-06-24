@@ -107,7 +107,7 @@ export function PlatformLanding() {
                 Comenzar gratis →
               </Link>
               <Link
-                href="/admin/login"
+                href="/super/login"
                 className="rounded-xl border border-background/20 bg-background/10 px-8 py-3.5 text-base font-medium text-background/90 transition hover:bg-background/20"
               >
                 Ya tengo cuenta

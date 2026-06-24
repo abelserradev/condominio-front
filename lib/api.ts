@@ -11,6 +11,28 @@ const getBaseUrl = (): string => {
 };
 
 const BUILDING_SLUG_COOKIE_RE = /(?:^|;\s*)building_slug=([^;]+)/;
+const PLATFORM_MODE_COOKIE_RE = /(?:^|;\s*)platform_mode=1(?:;|$)/;
+
+/** Dominio raíz de la plataforma (buildforge.work, localhost sin subdominio). */
+export function esModoPlataforma(): boolean {
+  if (globalThis.document === undefined) return false;
+  return PLATFORM_MODE_COOKIE_RE.test(globalThis.document.cookie);
+}
+
+/**
+ * Slug del tenant actual — solo cookie del middleware, sin fallback en plataforma.
+ * Usado en login y auth scoped al edificio.
+ */
+export function getBuildingSlugTenant(): string {
+  const fallbackDev = process.env.NEXT_PUBLIC_DEV_BUILDING_SLUG ?? "residencia-sofia";
+  if (globalThis.document === undefined) return fallbackDev;
+  const match = BUILDING_SLUG_COOKIE_RE.exec(globalThis.document.cookie);
+  if (match?.[1]) return decodeURIComponent(match[1]);
+  if (esModoPlataforma()) {
+    throw new Error("Este inicio de sesión es para el portal de un edificio. Accede desde la URL de tu condominio.");
+  }
+  return fallbackDev;
+}
 
 /**
  * Lee el slug del edificio actual desde la cookie que inyecta el middleware.
@@ -401,7 +423,11 @@ export type SuperBuilding = {
   createdAt?: string;
 };
 
-export async function login(usuario: string, contraseña: string): Promise<LoginResponse> {
+async function ejecutarLogin(
+  usuario: string,
+  contraseña: string,
+  headersExtra: HeadersInit,
+): Promise<LoginResponse> {
   const csrfToken = await obtenerCsrfToken();
   const res = await fetch(`${getBaseUrl()}/auth/login`, {
     method: "POST",
@@ -409,8 +435,7 @@ export async function login(usuario: string, contraseña: string): Promise<Login
       "Content-Type": "application/json",
       Accept: "application/json",
       "X-CSRF-Token": csrfToken,
-      // El slug le indica al backend en cuál edificio buscar al usuario
-      "x-building-slug": getBuildingSlug(),
+      ...headersExtra,
     },
     body: JSON.stringify({ usuario: usuario.trim(), contraseña }),
     credentials: "include",
@@ -430,6 +455,23 @@ export async function login(usuario: string, contraseña: string): Promise<Login
     throw new Error(msg);
   }
   return res.json() as Promise<LoginResponse>;
+}
+
+/** SuperAdmin en dominio raíz — sin contexto de edificio. */
+export async function loginPlataforma(usuario: string, contraseña: string): Promise<LoginResponse> {
+  return ejecutarLogin(usuario, contraseña, {});
+}
+
+/** Admin / propietario en portal del condominio — requiere slug del tenant. */
+export async function loginEdificio(usuario: string, contraseña: string): Promise<LoginResponse> {
+  return ejecutarLogin(usuario, contraseña, {
+    "x-building-slug": getBuildingSlugTenant(),
+  });
+}
+
+/** @deprecated Preferir loginEdificio o loginPlataforma según el portal. */
+export async function login(usuario: string, contraseña: string): Promise<LoginResponse> {
+  return loginEdificio(usuario, contraseña);
 }
 
 export type Apartment = {

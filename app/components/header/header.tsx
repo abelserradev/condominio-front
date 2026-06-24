@@ -162,12 +162,20 @@ export function Header() {
     );
   } else if (esPlataformaUi) {
     accionSesion = (
-      <Link
-        href="/registro"
-        className="rounded-lg bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground transition-colors hover:bg-secondary/90"
-      >
-        Registrar edificio
-      </Link>
+      <div className="flex items-center gap-2">
+        <Link
+          href="/super/login"
+          className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+        >
+          Iniciar sesión
+        </Link>
+        <Link
+          href="/registro"
+          className="rounded-lg bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground transition-colors hover:bg-secondary/90"
+        >
+          Registrar edificio
+        </Link>
+      </div>
     );
   } else {
     accionSesion = (

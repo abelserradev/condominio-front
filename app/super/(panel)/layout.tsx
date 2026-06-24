@@ -4,9 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useRequireRol } from "@/lib/hooks/useRequireRol";
 
-export default function SuperLayout({ children }: { children: React.ReactNode }) {
+export default function SuperPanelLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const rol = useRequireRol(["superadmin"]);
+  const rol = useRequireRol(["superadmin"], "/super/login");
 
   if (!rol) {
     return (

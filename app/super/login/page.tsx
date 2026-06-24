@@ -4,37 +4,23 @@ import { useState, type SubmitEvent } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { loginEdificio, type LoginResponse } from "@/lib/api";
-
-const DESTINOS_POR_ROL: Record<string, string> = {
-  admin: "/admin/inicio",
-  propietario: "/mi-apartamento",
-  inquilino: "/mi-apartamento",
-};
+import { loginPlataforma, type LoginResponse } from "@/lib/api";
 
 function guardarSesion(data: LoginResponse): void {
   if (globalThis.window === undefined) return;
   localStorage.setItem("admin_token", data.access_token);
-  localStorage.setItem("user_rol", data.rol ?? "admin");
-  if (data.edificio) localStorage.setItem("user_edificio", data.edificio);
-  if (data.piso != null) localStorage.setItem("user_piso", String(data.piso));
-  if (data.apartamento != null) localStorage.setItem("user_apartamento", String(data.apartamento));
-  if (data.idUnico) localStorage.setItem("user_id_unico", data.idUnico);
+  localStorage.setItem("user_rol", data.rol ?? "superadmin");
   globalThis.window.dispatchEvent(new Event("adminLogin"));
 }
 
 function obtenerMensajeError(err: unknown): string {
   if (err instanceof TypeError && err.message.includes("fetch")) {
-    return "Error de conexión. Verifica que el backend esté corriendo en http://localhost:3001";
+    return "Error de conexión. Verifica que el backend esté corriendo.";
   }
   return err instanceof Error ? err.message : "Error al iniciar sesión";
 }
 
-function redirigirPorRol(router: ReturnType<typeof useRouter>, rol: string | undefined): void {
-  router.replace(DESTINOS_POR_ROL[rol ?? "admin"] ?? "/admin/inicio");
-}
-
-export default function AdminLoginPage() {
+export default function SuperLoginPage() {
   const router = useRouter();
   const [usuario, setUsuario] = useState("");
   const [contraseña, setContraseña] = useState("");
@@ -46,9 +32,13 @@ export default function AdminLoginPage() {
     setError(null);
     setLoading(true);
     try {
-      const data: LoginResponse = await loginEdificio(usuario.trim(), contraseña);
+      const data = await loginPlataforma(usuario.trim(), contraseña);
+      if (data.rol !== "superadmin") {
+        setError("Esta cuenta es de un edificio. Entra desde el portal de tu condominio.");
+        return;
+      }
       guardarSesion(data);
-      redirigirPorRol(router, data.rol);
+      router.replace("/super/edificios");
     } catch (err) {
       setError(obtenerMensajeError(err));
     } finally {
@@ -67,10 +57,8 @@ export default function AdminLoginPage() {
           className="mx-auto mb-5 h-10 w-auto object-contain"
           priority
         />
-        <h4 className="mb-5 text-xl font-semibold text-background">
-          Iniciar sesión
-        </h4>
-        <p className="mb-4 text-sm text-background/60">Correo del administrador o propietario</p>
+        <h4 className="mb-1 text-xl font-semibold text-background">Acceso SuperAdmin</h4>
+        <p className="mb-5 text-sm text-background/60">Panel de gestión de la plataforma</p>
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="flex items-center gap-2 rounded-lg bg-background/10 px-4 py-3">
             <svg
@@ -81,11 +69,11 @@ export default function AdminLoginPage() {
               <path d="M256 256a112 112 0 1 0 0-224 112 112 0 1 0 0 224zm-48 80c-74.2 0-134.6 60.4-134.6 134.6 0 22.6 18.3 40.9 40.9 40.9h283.4c22.6 0 40.9-18.3 40.9-40.9C438.6 396.4 378.2 336 304 336H208z" />
             </svg>
             <input
-              autoComplete="email"
+              autoComplete="username"
               id="usuario"
               name="usuario"
-              type="email"
-              placeholder="Correo electrónico"
+              type="text"
+              placeholder="Usuario"
               value={usuario}
               onChange={(e) => setUsuario(e.target.value)}
               required
@@ -101,7 +89,7 @@ export default function AdminLoginPage() {
               <path d="M80 192V144c0-79.5 64.5-144 144-144s144 64.5 144 144v48h16c35.3 0 64 28.7 64 64v192c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V256c0-35.3 28.7-64 64-64h16zm144-48c-26.5 0-48 21.5-48 48v48h96V192c0-26.5-21.5-48-48-48z" />
             </svg>
             <input
-              autoComplete="off"
+              autoComplete="current-password"
               id="contraseña"
               name="contraseña"
               type="password"
@@ -113,7 +101,7 @@ export default function AdminLoginPage() {
             />
           </div>
           {error && (
-            <p className="text-sm text-destructive-foreground bg-destructive/80 rounded-lg px-3 py-2">{error}</p>
+            <p className="rounded-lg bg-destructive/80 px-3 py-2 text-sm text-destructive-foreground">{error}</p>
           )}
           <button
             type="submit"

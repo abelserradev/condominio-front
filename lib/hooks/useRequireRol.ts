@@ -3,7 +3,10 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
-export function useRequireRol(rolesPermitidos: string[]): string | null {
+export function useRequireRol(
+  rolesPermitidos: string[],
+  loginRedirect = "/admin/login",
+): string | null {
   const router = useRouter();
 
   useEffect(() => {
@@ -11,9 +14,9 @@ export function useRequireRol(rolesPermitidos: string[]): string | null {
     const userRol = localStorage.getItem("user_rol");
 
     if (!token || !userRol || !rolesPermitidos.includes(userRol)) {
-      router.replace("/admin/login");
+      router.replace(loginRedirect);
     }
-  }, [rolesPermitidos, router]);
+  }, [rolesPermitidos, loginRedirect, router]);
 
   if (typeof window === "undefined") return null;
   const userRol = localStorage.getItem("user_rol");
