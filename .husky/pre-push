@@ -1,1 +1,2 @@
-pnpm run typecheck && pnpm run build && pnpm run test
+# build primero: regenera .next/types tras mover rutas; tsc solo falla si va antes con caché vieja
+pnpm run build && pnpm run typecheck && pnpm run test
