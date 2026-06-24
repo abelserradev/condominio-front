@@ -4,6 +4,7 @@ import { ReporteOkBanner } from "../home/reporte-ok-banner";
 import { TasaBcvDelDia } from "../home/tasa-bcv-del-dia";
 import { NecesitasAyudaCard } from "../home/ayuda-card";
 import { BannerFromBranding } from "./banner-from-branding";
+import { fetchTasaBcv } from "@/lib/api";
 
 const iconRecibos = (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
@@ -30,7 +31,14 @@ const iconReglamentos = (
 );
 
 /** Portal del edificio (subdominio o dev con slug fijo) */
-export function BuildingHome() {
+export async function BuildingHome() {
+  let tasaInicial = null;
+  try {
+    tasaInicial = await fetchTasaBcv();
+  } catch {
+    // El cliente reintenta; no bloquear el home por DolarAPI
+  }
+
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-white px-4 py-8 sm:px-6">
       <div className="mx-auto max-w-3xl space-y-8">
@@ -40,7 +48,7 @@ export function BuildingHome() {
 
         <BannerFromBranding />
 
-        <TasaBcvDelDia />
+        <TasaBcvDelDia initial={tasaInicial} />
 
         <section>
           <h2 className="mb-4 text-lg font-bold text-slate-800">Acciones rápidas</h2>

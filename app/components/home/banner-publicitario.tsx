@@ -23,7 +23,7 @@ export function BannerPublicitario({ bannerUrl, nombreEdificio }: Props) {
         quality={90}
         sizes="(max-width: 768px) 100vw, 768px"
         className="h-auto w-full"
-        unoptimized={src.startsWith("/api/")}
+        unoptimized={src.startsWith("/api/") || src.startsWith("http")}
       />
     </figure>
   );

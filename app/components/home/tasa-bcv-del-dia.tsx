@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { fetchTasaBcv } from "@/lib/api";
+import { fetchTasaBcv, type TasaBcv } from "@/lib/api";
 
 function formatearTasaBcv(error: boolean, tasa: number | null): string {
   if (error) {
@@ -26,9 +26,16 @@ function formatearFechaActualizacion(fecha?: string): string {
   });
 }
 
-export function TasaBcvDelDia() {
-  const [tasa, setTasa] = useState<number | null>(null);
-  const [fechaActualizacion, setFechaActualizacion] = useState<string | undefined>();
+type Props = {
+  /** Precargada en SSR para mostrar tasa al primer paint */
+  initial?: TasaBcv | null;
+};
+
+export function TasaBcvDelDia({ initial = null }: Props) {
+  const [tasa, setTasa] = useState<number | null>(initial?.promedio ?? null);
+  const [fechaActualizacion, setFechaActualizacion] = useState<string | undefined>(
+    initial?.fechaActualizacion,
+  );
   const [error, setError] = useState(false);
 
   const cargarTasa = useCallback(() => {

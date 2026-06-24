@@ -161,11 +161,24 @@ export async function fetchPortalInfo(slug: string): Promise<PortalInfo | null> 
   return res.json();
 }
 
+/** Comprobantes/banners del backend pasan por /api (misma origen) — evita 400 en next/image */
 export function resolveBannerUrl(bannerUrl?: string): string | undefined {
   if (!bannerUrl) return undefined;
-  if (bannerUrl.startsWith("http")) return bannerUrl;
-  const path = bannerUrl.startsWith("/") ? bannerUrl : `/${bannerUrl}`;
-  return `${getBaseUrl()}${path}`;
+
+  let path = bannerUrl;
+  if (bannerUrl.startsWith("http")) {
+    try {
+      path = new URL(bannerUrl).pathname;
+    } catch {
+      return bannerUrl;
+    }
+  }
+
+  const normalizado = path.startsWith("/") ? path : `/${path}`;
+  if (normalizado.startsWith("/files/")) {
+    return `/api${normalizado}`;
+  }
+  return normalizado;
 }
 
 export type Payment = {
