@@ -9,6 +9,8 @@ import {
   renovarSuperBuilding,
   resetSuperBuildingAdmin,
   suspenderSuperBuilding,
+  subirPortalBannerSuper,
+  eliminarPortalBannerSuper,
   type SuperBuilding,
   type BuildingAdminInfo,
 } from "@/lib/api";
@@ -26,6 +28,8 @@ export default function SuperEdificioDetailPage() {
   const [nuevaPassword, setNuevaPassword] = useState("");
   const [reseteando, setReseteando] = useState(false);
   const [resetOk, setResetOk] = useState<string | null>(null);
+  const [subiendoBanner, setSubiendoBanner] = useState(false);
+  const [bannerOk, setBannerOk] = useState<string | null>(null);
 
   const cargar = useCallback(() => {
     setCargando(true);
@@ -75,6 +79,38 @@ export default function SuperEdificioDetailPage() {
       setError(e instanceof Error ? e.message : "Error al restablecer contraseña");
     } finally {
       setReseteando(false);
+    }
+  }
+
+  async function handleSubirBanner(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setSubiendoBanner(true);
+    setBannerOk(null);
+    setError(null);
+    try {
+      await subirPortalBannerSuper(id, file);
+      setBannerOk("Banner del portal actualizado");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al subir banner");
+    } finally {
+      setSubiendoBanner(false);
+      e.target.value = "";
+    }
+  }
+
+  async function handleEliminarBanner() {
+    if (!confirm("¿Quitar el banner personalizado del portal?")) return;
+    setSubiendoBanner(true);
+    setBannerOk(null);
+    setError(null);
+    try {
+      await eliminarPortalBannerSuper(id);
+      setBannerOk("Banner eliminado — se usará la imagen por defecto");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al eliminar banner");
+    } finally {
+      setSubiendoBanner(false);
     }
   }
 
@@ -140,6 +176,34 @@ export default function SuperEdificioDetailPage() {
           )}
         </div>
       </div>
+
+      <section className="mb-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h3 className="mb-2 font-semibold text-slate-800">Banner del portal</h3>
+        <p className="mb-4 text-sm text-slate-600">
+          Imagen hero en la home del portal de residentes. Si no hay banner, se muestra la imagen URBIX por defecto.
+        </p>
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="cursor-pointer rounded-lg bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700">
+            {subiendoBanner ? "Subiendo…" : "Subir imagen"}
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              className="hidden"
+              disabled={subiendoBanner}
+              onChange={handleSubirBanner}
+            />
+          </label>
+          <button
+            type="button"
+            onClick={handleEliminarBanner}
+            disabled={subiendoBanner}
+            className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          >
+            Quitar banner
+          </button>
+        </div>
+        {bannerOk && <p className="mt-3 text-sm text-green-700">{bannerOk}</p>}
+      </section>
 
       <section className="mb-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <h3 className="mb-4 font-semibold text-slate-800">Administrador del edificio</h3>

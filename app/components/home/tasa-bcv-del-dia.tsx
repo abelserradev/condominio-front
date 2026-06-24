@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { fetchTasaBcv } from "@/lib/api";
 
 function formatearTasaBcv(error: boolean, tasa: number | null): string {
@@ -13,18 +13,46 @@ function formatearTasaBcv(error: boolean, tasa: number | null): string {
   return `${tasa.toLocaleString("es-VE")} Bs`;
 }
 
+function formatearFechaActualizacion(fecha?: string): string {
+  if (!fecha) return "Sin fecha";
+  const d = new Date(fecha);
+  if (Number.isNaN(d.getTime())) return fecha;
+  return d.toLocaleString("es-VE", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export function TasaBcvDelDia() {
   const [tasa, setTasa] = useState<number | null>(null);
+  const [fechaActualizacion, setFechaActualizacion] = useState<string | undefined>();
   const [error, setError] = useState(false);
 
-  useEffect(() => {
+  const cargarTasa = useCallback(() => {
     fetchTasaBcv()
       .then((d) => {
         setTasa(d.promedio);
+        setFechaActualizacion(d.fechaActualizacion);
         setError(false);
       })
       .catch(() => setError(true));
   }, []);
+
+  useEffect(() => {
+    cargarTasa();
+    const interval = setInterval(cargarTasa, 60 * 60 * 1000);
+    function onVisible() {
+      if (document.visibilityState === "visible") cargarTasa();
+    }
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [cargarTasa]);
 
   return (
     <div className="flex w-full items-center justify-between gap-4 rounded-2xl border border-border bg-primary/10 px-5 py-4 sm:px-6">
@@ -39,7 +67,9 @@ export function TasaBcvDelDia() {
           {formatearTasaBcv(error, tasa)}
         </p>
       </div>
-      <span className="shrink-0 text-right text-sm text-muted-foreground">Actualizado hoy</span>
+      <span className="shrink-0 max-w-[9rem] text-right text-xs text-muted-foreground sm:text-sm">
+        Actualizado: {formatearFechaActualizacion(fechaActualizacion)}
+      </span>
     </div>
   );
 }

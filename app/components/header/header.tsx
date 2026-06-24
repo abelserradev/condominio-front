@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import Image from "next/image";
 import { getOrCreateDeviceId, fetchUnreadAvisosCount } from "@/lib/api";
+import { usePortalBranding } from "../platform/portal-branding-provider";
 
 const logoUrbix = (
   <Image
@@ -24,6 +25,7 @@ function tieneModoPlataforma(): boolean {
 export function Header() {
   const router = useRouter();
   const pathname = usePathname();
+  const portalBranding = usePortalBranding();
   const [isAdmin, setIsAdmin] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   // Siempre false hasta que el effect confirme en cliente — evita hydration mismatch
@@ -133,13 +135,14 @@ export function Header() {
       </Link>
     );
   } else {
+    const nombreEdificio = portalBranding?.nombre;
     marcaIzquierda = (
       <Link href="/" className="flex min-w-0 items-center gap-2 sm:gap-3">
         {logoUrbix}
         {logoIconEdificio}
         <div className="min-w-0 flex flex-col justify-center leading-tight">
-          <span className="text-sm font-semibold tracking-tight text-foreground sm:text-base md:text-lg">
-            URBIX
+          <span className="truncate text-sm font-semibold tracking-tight text-foreground sm:text-base md:text-lg">
+            {nombreEdificio ?? "URBIX"}
           </span>
           <span className="text-[10px] text-muted-foreground sm:text-xs">Portal de residentes</span>
         </div>

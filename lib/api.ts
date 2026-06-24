@@ -106,15 +106,66 @@ export async function fetchBanks(): Promise<Bank[]> {
 export type TasaBcv = { promedio: number; fechaActualizacion?: string };
 
 export async function fetchTasaBcv(): Promise<TasaBcv> {
-  const res = await fetch(`${getBaseUrl()}/tasa-bcv`);
+  const res = await fetch(`${getBaseUrl()}/tasa-bcv?_t=${Date.now()}`, {
+    cache: "no-store",
+  });
   if (!res.ok) throw new Error("Error al cargar tasa BCV");
   return res.json();
 }
 
 export async function fetchTasaBcvPorFecha(fecha: string): Promise<TasaBcv> {
-  const res = await fetch(`${getBaseUrl()}/tasa-bcv/${fecha}`);
+  const res = await fetch(`${getBaseUrl()}/tasa-bcv/${fecha}?_t=${Date.now()}`, {
+    cache: "no-store",
+  });
   if (!res.ok) throw new Error("Error al cargar tasa BCV histórica");
   return res.json();
+}
+
+export type PortalInfo = {
+  nombre: string;
+  slug: string;
+  activo: boolean;
+  estadoSuscripcion: string;
+  suscripcionHasta?: string;
+  diasGracia: number;
+  portalAccesible: boolean;
+  motivoBloqueo?: "suspendido" | "vencido";
+  bannerUrl?: string;
+  datosContactoPago?: string;
+};
+
+/** SSR: slug desde headers/cookie del middleware */
+export async function resolveBuildingSlugServer(): Promise<string> {
+  const { headers, cookies } = await import("next/headers");
+  const headersList = await headers();
+  const cookieStore = await cookies();
+  return (
+    headersList.get("x-building-slug") ??
+    cookieStore.get("building_slug")?.value ??
+    process.env.NEXT_PUBLIC_DEV_BUILDING_SLUG ??
+    "residencia-sofia"
+  );
+}
+
+export async function fetchPortalInfo(slug: string): Promise<PortalInfo | null> {
+  const slugNorm = slug.trim().toLowerCase();
+  const res = await fetch(
+    `${getBaseUrl()}/buildings/portal?slug=${encodeURIComponent(slugNorm)}`,
+    {
+      headers: { "x-building-slug": slugNorm },
+      cache: "no-store",
+    },
+  );
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error("No se pudo cargar la información del portal");
+  return res.json();
+}
+
+export function resolveBannerUrl(bannerUrl?: string): string | undefined {
+  if (!bannerUrl) return undefined;
+  if (bannerUrl.startsWith("http")) return bannerUrl;
+  const path = bannerUrl.startsWith("/") ? bannerUrl : `/${bannerUrl}`;
+  return `${getBaseUrl()}${path}`;
 }
 
 export type Payment = {
@@ -352,6 +403,9 @@ export async function login(usuario: string, contraseña: string): Promise<Login
     credentials: "include",
   });
   if (!res.ok) {
+    if (res.status === 401) {
+      throw new Error("Credenciales inválidas");
+    }
     const text = await res.text();
     let msg = "Error al iniciar sesión";
     try {
@@ -623,6 +677,66 @@ export async function suspenderSuperBuilding(id: string): Promise<SuperBuilding>
   return res.json();
 }
 
+const MENSAJE_REGISTRO_GENERICO =
+  "No se pudo completar el registro. Revisa los datos o contacta soporte.";
+
+function errorRegistroSeguro(res: Response, err: unknown): Error {
+  if (res.status === 409) {
+    return new Error(MENSAJE_REGISTRO_GENERICO);
+  }
+  const msg = (err as { message?: string | string[] }).message;
+  const texto = Array.isArray(msg) ? msg.join(", ") : msg;
+  if (
+    texto &&
+    (/ya está registrado|ya existe|already exists/i.test(texto) ||
+      /@/.test(texto))
+  ) {
+    return new Error(MENSAJE_REGISTRO_GENERICO);
+  }
+  return new Error(texto ?? MENSAJE_REGISTRO_GENERICO);
+}
+
+export async function subirPortalBannerSuper(
+  buildingId: string,
+  file: File,
+): Promise<{ bannerUrl: string }> {
+  const formData = new FormData();
+  formData.append("banner", file);
+  const res = await fetch(
+    `${getBaseUrl()}/super/buildings/${buildingId}/portal-banner`,
+    {
+      method: "POST",
+      headers: getBaseHeaders(),
+      body: formData,
+    },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      (err as { message?: string }).message ?? "Error al subir banner",
+    );
+  }
+  return res.json();
+}
+
+export async function eliminarPortalBannerSuper(
+  buildingId: string,
+): Promise<void> {
+  const res = await fetch(
+    `${getBaseUrl()}/super/buildings/${buildingId}/portal-banner/eliminar`,
+    {
+      method: "PATCH",
+      headers: getAuthHeaders(),
+    },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      (err as { message?: string }).message ?? "Error al eliminar banner",
+    );
+  }
+}
+
 export async function crearSuperBuilding(data: {
   slug: string;
   nombre: string;
@@ -640,7 +754,7 @@ export async function crearSuperBuilding(data: {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error((err as { message?: string }).message ?? "Error al crear edificio");
+    throw errorRegistroSeguro(res, err);
   }
   return res.json();
 }
@@ -689,10 +803,7 @@ export async function registerBuilding(data: {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    const msg = (err as { message?: string | string[] }).message;
-    throw new Error(
-      Array.isArray(msg) ? msg.join(", ") : (msg ?? "Error al registrar edificio"),
-    );
+    throw errorRegistroSeguro(res, err);
   }
   return res.json();
 }

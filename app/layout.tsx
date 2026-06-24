@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { headers } from "next/headers";
 import { AdminRedirectGuard } from "./components/admin-redirect-guard";
 import { Header } from "./components/header/header";
+import { TenantPortalGate } from "./components/platform/tenant-portal-gate";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -22,20 +24,25 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const headersList = await headers();
+  const esPlataforma = headersList.get("x-platform-mode") === "true";
+
   return (
     <html lang="es">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <Header />
-        <AdminRedirectGuard>
-          <main className="min-h-[calc(100vh-4rem)] bg-background">{children}</main>
-        </AdminRedirectGuard>
+        <TenantPortalGate esPlataforma={esPlataforma}>
+          <Header />
+          <AdminRedirectGuard>
+            <main className="min-h-[calc(100vh-4rem)] bg-background">{children}</main>
+          </AdminRedirectGuard>
+        </TenantPortalGate>
       </body>
     </html>
   );

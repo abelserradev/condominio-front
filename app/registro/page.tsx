@@ -149,7 +149,7 @@ export default function RegistroPage() {
 
       <h1 className="mb-2 text-2xl font-bold text-slate-800">Registrar edificio</h1>
       <p className="mb-8 text-sm text-slate-600">
-        Paso {paso} de 2 — prueba gratuita de 14 días, sin tarjeta.
+        Paso {paso} de 2 — prueba gratuita de 14 días, sin pago inicial.
       </p>
 
       <form

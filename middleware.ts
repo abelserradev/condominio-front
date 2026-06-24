@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const DEV_BUILDING_SLUG = process.env.NEXT_PUBLIC_DEV_BUILDING_SLUG ?? 'residencia-sofia';
 
+// Multi-portal en dev: usar http://{slug}.localhost:3000 (ej. residencia-sofia.localhost:3000)
+// localhost:3000 sin subdominio siempre apunta a DEV_BUILDING_SLUG
+
 function hostSinPuerto(req: NextRequest): string {
   return (req.headers.get('host') ?? '').split(':')[0];
 }
@@ -33,10 +36,14 @@ function extractBuildingSlug(host: string): string {
 export function middleware(req: NextRequest): NextResponse {
   const host = hostSinPuerto(req);
   const esPlataforma = isPlatformRoot(host);
-  const response = NextResponse.next();
+  const requestHeaders = new Headers(req.headers);
+  const response = NextResponse.next({
+    request: { headers: requestHeaders },
+  });
 
   if (esPlataforma) {
     response.headers.set('x-platform-mode', 'true');
+    requestHeaders.set('x-platform-mode', 'true');
     response.cookies.set('platform_mode', '1', {
       httpOnly: false,
       sameSite: 'lax',
@@ -47,6 +54,8 @@ export function middleware(req: NextRequest): NextResponse {
     const slug = extractBuildingSlug(host);
     response.headers.set('x-platform-mode', 'false');
     response.headers.set('x-building-slug', slug);
+    requestHeaders.set('x-platform-mode', 'false');
+    requestHeaders.set('x-building-slug', slug);
     response.cookies.set('building_slug', slug, {
       httpOnly: false,
       sameSite: 'lax',
