@@ -1,9 +1,9 @@
 import Image from "next/image";
 
-/** Hero de marca URBIX en el portal del edificio (subdominio) */
+/** Hero URBIX del portal del edificio — sin enlaces externos */
 export function BannerPublicitario() {
   return (
-    <div className="overflow-hidden rounded-2xl shadow-md ring-1 ring-slate-200/80">
+    <figure className="overflow-hidden rounded-2xl shadow-md ring-1 ring-slate-200/80">
       <Image
         src="/Comple.png"
         alt="URBIX — El sistema operativo de tu comunidad"
@@ -14,6 +14,6 @@ export function BannerPublicitario() {
         sizes="(max-width: 768px) 100vw, 768px"
         className="h-auto w-full"
       />
-    </div>
+    </figure>
   );
 }
