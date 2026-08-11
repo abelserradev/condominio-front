@@ -223,12 +223,7 @@ export default function ReportarPagoPage() {
 
   useEffect(() => {
     fetchBuildingLayout()
-      .then((list) => {
-        setLayoutApartamentos(list);
-        // #region agent log
-        fetch('http://127.0.0.1:7770/ingest/8d24192f-e050-43eb-bac5-e21e3ba0ea2e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5c886b'},body:JSON.stringify({sessionId:'5c886b',location:'reportar-pago/page.tsx:layout',message:'layout cargado',data:{total:list.length,pisos:[...new Set(list.map(a=>a.piso))].sort((a,b)=>a-b),slug:typeof window!=='undefined'?window.location.hostname.split('.')[0]:null},timestamp:Date.now(),hypothesisId:'H1',runId:'post-fix'})}).catch(()=>{});
-        // #endregion
-      })
+      .then(setLayoutApartamentos)
       .catch(() => setLayoutApartamentos([]))
       .finally(() => setCargandoLayout(false));
   }, []);
