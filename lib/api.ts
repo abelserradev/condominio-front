@@ -154,6 +154,8 @@ export type PortalInfo = {
   motivoBloqueo?: "suspendido" | "vencido";
   bannerUrl?: string;
   datosContactoPago?: string;
+  totalPisos: number;
+  apartamentosPorPiso: number;
 };
 
 /** SSR: slug desde headers/cookie del middleware */
@@ -400,6 +402,8 @@ export type BuildingSuscripcion = {
   suscripcionHasta: string;
   diasGracia: number;
   datosContactoPago?: string;
+  totalPisos: number;
+  apartamentosPorPiso: number;
 };
 
 export type SuperBuilding = {
@@ -482,6 +486,25 @@ export type Apartment = {
   numero: number;
   idUnico: string;
 };
+
+/** Fallback cuando la colección apartamentos aún no tiene seed pero el edificio sí tiene config */
+export function construirApartamentosDesdeConfig(
+  totalPisos: number,
+  apartamentosPorPiso: number,
+): Apartment[] {
+  const list: Apartment[] = [];
+  for (let p = 1; p <= totalPisos; p++) {
+    for (let a = 1; a <= apartamentosPorPiso; a++) {
+      list.push({
+        _id: `cfg-P${p}-A${a}`,
+        piso: p,
+        numero: a,
+        idUnico: `P${p}-A${a}`,
+      });
+    }
+  }
+  return list;
+}
 
 export async function fetchApartments(piso?: number): Promise<Apartment[]> {
   const params = typeof piso === "number" ? `?piso=${piso}` : "";

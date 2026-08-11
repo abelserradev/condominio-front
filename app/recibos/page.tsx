@@ -8,9 +8,13 @@ import {
   fetchPaymentsByApartamento,
   fetchRecibos,
   fetchAbono,
+  fetchApartments,
+  fetchPortalInfo,
+  construirApartamentosDesdeConfig,
   getComprobanteUrl,
   type Payment,
   type Recibo,
+  type Apartment,
 } from "@/lib/api";
 
 const MESES = [
@@ -98,6 +102,62 @@ export default function RecibosPage() {
   const [abono, setAbono] = useState<number>(0);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [apartamentos, setApartamentos] = useState<Apartment[]>([]);
+  const [cargandoLayout, setCargandoLayout] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function cargarLayoutEdificio() {
+      try {
+        const list = await fetchApartments();
+        if (!cancelled && list.length > 0) {
+          setApartamentos(list);
+          return;
+        }
+      } catch {
+        // fallback a config del edificio en portal
+      }
+
+      try {
+        const slugMatch = /(?:^|;\s*)building_slug=([^;]+)/.exec(document.cookie);
+        const slug = slugMatch?.[1]
+          ? decodeURIComponent(slugMatch[1])
+          : process.env.NEXT_PUBLIC_DEV_BUILDING_SLUG ?? "residencia-sofia";
+        const portal = await fetchPortalInfo(slug);
+        if (!cancelled && portal) {
+          setApartamentos(
+            construirApartamentosDesdeConfig(
+              portal.totalPisos,
+              portal.apartamentosPorPiso,
+            ),
+          );
+        }
+      } catch {
+        if (!cancelled) setApartamentos([]);
+      } finally {
+        if (!cancelled) setCargandoLayout(false);
+      }
+    }
+
+    void cargarLayoutEdificio().finally(() => {
+      if (!cancelled) setCargandoLayout(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const pisosDisponibles = [...new Set(apartamentos.map((a) => a.piso))].sort(
+    (a, b) => a - b,
+  );
+  const apartamentosDelPiso =
+    pisoSeleccionado == null
+      ? []
+      : apartamentos
+          .filter((a) => a.piso === pisoSeleccionado)
+          .map((a) => a.numero)
+          .sort((a, b) => a - b);
 
   const handleSelectPiso = (piso: number) => {
     setPisoSeleccionado(piso);
@@ -218,7 +278,11 @@ export default function RecibosPage() {
           <h1 className="mb-8 text-center text-2xl font-semibold text-foreground">
             Pisos
           </h1>
-          <PisosGrid onSelectPiso={handleSelectPiso} />
+          {cargandoLayout ? (
+            <p className="py-8 text-center text-muted-foreground">Cargando pisos…</p>
+          ) : (
+            <PisosGrid pisos={pisosDisponibles} onSelectPiso={handleSelectPiso} />
+          )}
         </>
       )}
 
@@ -239,7 +303,10 @@ export default function RecibosPage() {
           <p className="mb-6 text-center text-secondary">
             Piso {pisoSeleccionado ?? ""}
           </p>
-          <ApartamentosGrid onSelectApartamento={handleSelectApartamento} />
+          <ApartamentosGrid
+            apartamentos={apartamentosDelPiso}
+            onSelectApartamento={handleSelectApartamento}
+          />
         </>
       )}
 
