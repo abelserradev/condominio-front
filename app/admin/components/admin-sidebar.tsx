@@ -1,6 +1,6 @@
 "use client";
 
-import { Apartment, fetchApartments, fetchMiSuscripcion, construirApartamentosDesdeConfig } from "@/lib/api";
+import { Apartment, fetchBuildingLayout } from "@/lib/api";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -32,27 +32,13 @@ export function AdminSidebar({ abierto = false, onCerrar }: Readonly<AdminSideba
     useEffect(() => {
         async function cargar() {
             try {
-                const slug = document.cookie.match(/(?:^|;\s*)building_slug=([^;]+)/)?.[1];
-                let list = await fetchApartments();
-                if (list.length === 0) {
-                  const suscripcion = await fetchMiSuscripcion();
-                  list = construirApartamentosDesdeConfig(
-                    suscripcion.totalPisos,
-                    suscripcion.apartamentosPorPiso,
-                  );
-                }
+                const list = await fetchBuildingLayout();
                 const ordenados = list.toSorted((a, b) => {
                     if (a.piso !== b.piso) return a.piso - b.piso;
                     return a.numero - b.numero;
                 });
                 setApartamentos(ordenados);
-                // #region agent log
-                fetch('http://127.0.0.1:7770/ingest/8d24192f-e050-43eb-bac5-e21e3ba0ea2e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5c886b'},body:JSON.stringify({sessionId:'5c886b',runId:'post-fix',hypothesisId:'H3-H5',location:'admin-sidebar.tsx:cargar',message:'Apartamentos admin sidebar',data:{slugCookie:slug?decodeURIComponent(slug):null,count:ordenados.length,pisosUnicos:[...new Set(ordenados.map(a=>a.piso))].sort((a,b)=>a-b)},timestamp:Date.now()})}).catch(()=>{});
-                // #endregion
-            } catch (err) {
-                // #region agent log
-                fetch('http://127.0.0.1:7770/ingest/8d24192f-e050-43eb-bac5-e21e3ba0ea2e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5c886b'},body:JSON.stringify({sessionId:'5c886b',runId:'post-fix',hypothesisId:'H3',location:'admin-sidebar.tsx:cargar:catch',message:'fetchApartments falló',data:{error:err instanceof Error?err.message:String(err)},timestamp:Date.now()})}).catch(()=>{});
-                // #endregion
+            } catch {
                 setApartamentos([]);
             } finally {
                 setCargando(false);

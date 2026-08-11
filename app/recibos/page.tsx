@@ -8,9 +8,7 @@ import {
   fetchPaymentsByApartamento,
   fetchRecibos,
   fetchAbono,
-  fetchApartments,
-  fetchPortalInfo,
-  construirApartamentosDesdeConfig,
+  fetchBuildingLayout,
   getComprobanteUrl,
   type Payment,
   type Recibo,
@@ -110,29 +108,8 @@ export default function RecibosPage() {
 
     async function cargarLayoutEdificio() {
       try {
-        const list = await fetchApartments();
-        if (!cancelled && list.length > 0) {
-          setApartamentos(list);
-          return;
-        }
-      } catch {
-        // fallback a config del edificio en portal
-      }
-
-      try {
-        const slugMatch = /(?:^|;\s*)building_slug=([^;]+)/.exec(document.cookie);
-        const slug = slugMatch?.[1]
-          ? decodeURIComponent(slugMatch[1])
-          : process.env.NEXT_PUBLIC_DEV_BUILDING_SLUG ?? "residencia-sofia";
-        const portal = await fetchPortalInfo(slug);
-        if (!cancelled && portal) {
-          setApartamentos(
-            construirApartamentosDesdeConfig(
-              portal.totalPisos,
-              portal.apartamentosPorPiso,
-            ),
-          );
-        }
+        const list = await fetchBuildingLayout();
+        if (!cancelled) setApartamentos(list);
       } catch {
         if (!cancelled) setApartamentos([]);
       } finally {
@@ -140,9 +117,7 @@ export default function RecibosPage() {
       }
     }
 
-    void cargarLayoutEdificio().finally(() => {
-      if (!cancelled) setCargandoLayout(false);
-    });
+    void cargarLayoutEdificio();
     return () => {
       cancelled = true;
     };

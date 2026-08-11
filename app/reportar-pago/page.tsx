@@ -12,8 +12,10 @@ import {
   fetchTasaBcv,
   fetchTasaBcvPorFecha,
   extractComprobante,
+  fetchBuildingLayout,
   type Bank,
   type Recibo,
+  type Apartment,
 } from "@/lib/api";
 import { getDatosPropietario, esPropietarioLogueado } from "@/lib/hooks/useRequireRol";
 
@@ -216,6 +218,30 @@ export default function ReportarPagoPage() {
   const [abono, setAbono] = useState<number>(0);
   const ocrMontosAplicadosRef = useRef(false);
   const [propietarioLogueado, setPropietarioLogueado] = useState(false);
+  const [layoutApartamentos, setLayoutApartamentos] = useState<Apartment[]>([]);
+  const [cargandoLayout, setCargandoLayout] = useState(true);
+
+  useEffect(() => {
+    fetchBuildingLayout()
+      .then((list) => {
+        setLayoutApartamentos(list);
+        // #region agent log
+        fetch('http://127.0.0.1:7770/ingest/8d24192f-e050-43eb-bac5-e21e3ba0ea2e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5c886b'},body:JSON.stringify({sessionId:'5c886b',location:'reportar-pago/page.tsx:layout',message:'layout cargado',data:{total:list.length,pisos:[...new Set(list.map(a=>a.piso))].sort((a,b)=>a-b),slug:typeof window!=='undefined'?window.location.hostname.split('.')[0]:null},timestamp:Date.now(),hypothesisId:'H1',runId:'post-fix'})}).catch(()=>{});
+        // #endregion
+      })
+      .catch(() => setLayoutApartamentos([]))
+      .finally(() => setCargandoLayout(false));
+  }, []);
+
+  const pisosDisponibles = [...new Set(layoutApartamentos.map((a) => a.piso))].sort(
+    (a, b) => a - b,
+  );
+  const apartamentosDelPiso = piso
+    ? layoutApartamentos
+        .filter((a) => a.piso === Number.parseInt(piso, 10))
+        .map((a) => a.numero)
+        .sort((a, b) => a - b)
+    : [];
 
   useEffect(() => {
     if (!esPropietarioLogueado()) return;
@@ -696,12 +722,18 @@ export default function ReportarPagoPage() {
           <select
             id="piso"
             value={piso}
-            onChange={(e) => setPiso(e.target.value)}
+            onChange={(e) => {
+              setPiso(e.target.value);
+              setApartamento("");
+            }}
             required
-            className="w-full rounded-lg border border-border bg-card px-3 py-2 text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            disabled={cargandoLayout || pisosDisponibles.length === 0}
+            className="w-full rounded-lg border border-border bg-card px-3 py-2 text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-60"
           >
-            <option value="">Seleccione</option>
-            {Array.from({ length: 30 }, (_, i) => i + 1).map((n) => (
+            <option value="">
+              {cargandoLayout ? "Cargando pisos…" : "Seleccione"}
+            </option>
+            {pisosDisponibles.map((n) => (
               <option key={n} value={n}>
                 {n}
               </option>
@@ -721,10 +753,13 @@ export default function ReportarPagoPage() {
             value={apartamento}
             onChange={(e) => setApartamento(e.target.value)}
             required
-            className="w-full rounded-lg border border-border bg-card px-3 py-2 text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            disabled={!piso || cargandoLayout || apartamentosDelPiso.length === 0}
+            className="w-full rounded-lg border border-border bg-card px-3 py-2 text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-60"
           >
-            <option value="">Seleccione</option>
-            {Array.from({ length: 8 }, (_, i) => i + 1).map((n) => (
+            <option value="">
+              {!piso ? "Seleccione un piso primero" : "Seleccione"}
+            </option>
+            {apartamentosDelPiso.map((n) => (
               <option key={n} value={n}>
                 {n}
               </option>

@@ -506,6 +506,24 @@ export function construirApartamentosDesdeConfig(
   return list;
 }
 
+/** Pisos/apartamentos del edificio: BD primero; si falla (403 suspendido, seed vacío), config del portal */
+export async function fetchBuildingLayout(): Promise<Apartment[]> {
+  try {
+    const list = await fetchApartments();
+    if (list.length > 0) return list;
+  } catch {
+    // SubscriptionGuard u otro error — caer al layout público del portal
+  }
+
+  const slug = getBuildingSlug();
+  const portal = await fetchPortalInfo(slug);
+  if (!portal) return [];
+  return construirApartamentosDesdeConfig(
+    portal.totalPisos,
+    portal.apartamentosPorPiso,
+  );
+}
+
 export async function fetchApartments(piso?: number): Promise<Apartment[]> {
   const params = typeof piso === "number" ? `?piso=${piso}` : "";
   const res = await fetch(`${getBaseUrl()}/apartments${params}`, {
