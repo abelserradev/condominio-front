@@ -2,6 +2,27 @@
 
 Dominio: **buildforge.work**
 
+## Error 500 en `/api/*` (proxy roto)
+
+Si `GET https://buildforge.work/api/buildings/check-slug/hola` devuelve **500** pero
+`https://api.buildforge.work/buildings/check-slug/hola` responde **200**, el backend
+está bien: falla el **proxy del frontend**.
+
+Causa habitual: `API_PROXY_TARGET` vacío o los rewrites de `next.config` bakeados
+en build apuntando a `localhost:3001`. Desde v2026 el proxy `/api` va por **middleware**
+(en runtime).
+
+### Variables mínimas del frontend
+
+| Variable | Valor recomendado |
+|----------|-------------------|
+| `API_PROXY_TARGET` | `https://api.buildforge.work` **o** `http://api:3001` (misma red Docker) |
+| `NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN` | `buildforge.work` (fallback si no hay `API_PROXY_TARGET`) |
+
+Redeploy del frontend tras cambiar variables.
+
+---
+
 ## Error `ECONNREFUSED` al proxy `/api`
 
 Si en los logs del frontend ves:

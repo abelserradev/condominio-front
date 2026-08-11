@@ -1,6 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getBackendProxyTarget } from './lib/backend-url';
 
 const DEV_BUILDING_SLUG = process.env.NEXT_PUBLIC_DEV_BUILDING_SLUG ?? 'residencia-sofia';
+
+/** Proxy /api en runtime — next.config rewrites se resuelven en build y ignoran Coolify env */
+function proxyApiAlBackend(req: NextRequest): NextResponse | null {
+  const { pathname, search } = req.nextUrl;
+  if (!pathname.startsWith('/api/')) return null;
+
+  const backendBase = getBackendProxyTarget().replace(/\/+$/, '');
+  const backendPath = pathname.slice('/api'.length) || '/';
+  const destination = new URL(`${backendPath}${search}`, `${backendBase}/`);
+  return NextResponse.rewrite(destination);
+}
 
 // Multi-portal en dev: usar http://{slug}.localhost:3000 (ej. residencia-sofia.localhost:3000)
 // localhost:3000 sin subdominio siempre apunta a DEV_BUILDING_SLUG
@@ -34,6 +46,9 @@ function extractBuildingSlug(host: string): string {
 }
 
 export function middleware(req: NextRequest): NextResponse {
+  const apiProxy = proxyApiAlBackend(req);
+  if (apiProxy) return apiProxy;
+
   const host = hostSinPuerto(req);
   const esPlataforma = isPlatformRoot(host);
   const pathname = req.nextUrl.pathname;

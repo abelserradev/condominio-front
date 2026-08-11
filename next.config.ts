@@ -1,5 +1,4 @@
 import type { NextConfig } from "next";
-import { getBackendProxyTarget } from "./lib/backend-url";
 
 function remotePatternsFromEnv(): NonNullable<NextConfig["images"]>["remotePatterns"] {
   const patterns: NonNullable<NextConfig["images"]>["remotePatterns"] = [];
@@ -25,15 +24,7 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: remotePatternsFromEnv(),
   },
-  async rewrites() {
-    const target = getBackendProxyTarget();
-    return [
-      {
-        source: "/api/:path*",
-        destination: `${target}/:path*`,
-      },
-    ];
-  },
+  // /api → backend vía middleware.ts (runtime). Rewrites aquí se bakean en build.
 };
 
 export default nextConfig;

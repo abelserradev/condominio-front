@@ -30,8 +30,21 @@ export function resolveBackendUrl(
   return clean;
 }
 
+/**
+ * URL del backend para proxy SSR y middleware.
+ * API_PROXY_TARGET se lee en runtime (Coolify); los rewrites de next.config no.
+ */
 export function getBackendProxyTarget(): string {
-  return resolveBackendUrl(
-    process.env.API_PROXY_TARGET ?? process.env.NEXT_PUBLIC_API_URL,
-  );
+  const explicit =
+    process.env.API_PROXY_TARGET ?? process.env.NEXT_PUBLIC_API_URL;
+  if (explicit?.startsWith("http")) {
+    return resolveBackendUrl(explicit);
+  }
+
+  const platformDomain = process.env.NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN?.trim();
+  if (platformDomain) {
+    return resolveBackendUrl(`https://api.${platformDomain}`);
+  }
+
+  return resolveBackendUrl(undefined);
 }
