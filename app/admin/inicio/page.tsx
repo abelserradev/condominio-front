@@ -7,15 +7,13 @@ import { useRouter } from "next/navigation";
 import {
   fetchPayments,
   fetchPayment,
-  fetchApartments,
-  fetchRecibos,
+  fetchReporteCobranza,
   aceptarPago,
   rechazarPago,
   getComprobanteUrl,
   fetchTasaBcv,
   fetchMiSuscripcion,
   type Payment,
-  type Recibo,
   type BuildingSuscripcion,
 } from "@/lib/api";
 import { diasHasta } from "@/app/components/super/suscripcion-badge";
@@ -39,13 +37,8 @@ type Metricas = {
   pagosRegistrados: number;
   apartamentosConDeudas: number;
   apartamentosSinDeudasActivas: number;
-  apartamentosSoloDeudaCuotasEspeciales: number;
+  pagosEnRevision: number;
 };
-
-function esDeudaCondominio(tipoDeuda: string): boolean {
-  const t = tipoDeuda.toLowerCase();
-  return t.includes("condominio") || t === "pendiente" || t === "factura";
-}
 
 function mensajeSuscripcion(
   estado: string,
@@ -64,55 +57,6 @@ function formatearMeses(meses: number[]): string {
   return meses.map((m) => MESES[m - 1]).join(", ");
 }
 
-function esDeudaCuotasEspeciales(tipoDeuda: string): boolean {
-  const t = tipoDeuda.toLowerCase();
-  return t.includes("cuota") || t.includes("especial") || t.includes("acumulada") || t.includes("reparacion");
-}
-
-function calcularMetricas(
-  todosPagos: Payment[],
-  recibos: Recibo[],
-  totalApartamentos: number,
-): Metricas {
-  const pagosRegistrados = todosPagos.length;
-  const recibosPendientesCondominioOCuotas = recibos.filter(
-    (r) =>
-      (esDeudaCondominio(r.tipoDeuda) || esDeudaCuotasEspeciales(r.tipoDeuda)) &&
-      (r.estado ?? "pendiente") === "pendiente" &&
-      (r.montoPagado ?? 0) < r.montoUsd,
-  );
-  const keysAptMorosos = new Set<string>();
-  for (const r of recibosPendientesCondominioOCuotas) {
-    const p = Number(r.piso);
-    const a = Number(r.apartamento);
-    if (Number.isFinite(p) && Number.isFinite(a)) {
-      keysAptMorosos.add(`${p}-${a}`);
-    }
-  }
-  const apartamentosConDeudas = keysAptMorosos.size;
-  const recibosConSaldo = recibos.filter((r) => (r.montoPagado ?? 0) < r.montoUsd);
-  const apartamentosConDeuda = new Set(
-    recibosConSaldo.map((r) => `${r.piso}-${r.apartamento}`),
-  );
-  const apartamentosSinDeudasActivas = totalApartamentos - apartamentosConDeuda.size;
-  const aptsConDeudaCondominio = new Set<string>();
-  const aptsConDeudaCuotasEspeciales = new Set<string>();
-  for (const r of recibosConSaldo) {
-    const key = `${r.piso}-${r.apartamento}`;
-    if (esDeudaCondominio(r.tipoDeuda)) aptsConDeudaCondominio.add(key);
-    if (esDeudaCuotasEspeciales(r.tipoDeuda)) aptsConDeudaCuotasEspeciales.add(key);
-  }
-  const apartamentosSoloDeudaCuotasEspeciales = [...aptsConDeudaCuotasEspeciales].filter(
-    (key) => !aptsConDeudaCondominio.has(key),
-  ).length;
-  return {
-    pagosRegistrados,
-    apartamentosConDeudas,
-    apartamentosSinDeudasActivas: Math.max(0, apartamentosSinDeudasActivas),
-    apartamentosSoloDeudaCuotasEspeciales,
-  };
-}
-
 export default function AdminInicioPage() {
   const router = useRouter();
   const [pagosPendientes, setPagosPendientes] = useState<Payment[]>([]);
@@ -122,7 +66,7 @@ export default function AdminInicioPage() {
     pagosRegistrados: 0,
     apartamentosConDeudas: 0,
     apartamentosSinDeudasActivas: 0,
-    apartamentosSoloDeudaCuotasEspeciales: 0,
+    pagosEnRevision: 0,
   });
   const [cargando, setCargando] = useState(true);
   const [procesando, setProcesando] = useState(false);
@@ -134,11 +78,10 @@ export default function AdminInicioPage() {
   const cargarDatos = useCallback(async () => {
     try {
       setCargando(true);
-      const [pagosPend, pagosAcept, apts, recibos, tasaRes] = await Promise.all([
+      const [pagosPend, pagosAcept, reporte, tasaRes] = await Promise.all([
         fetchPayments(undefined, undefined, "pendiente"),
         fetchPayments(undefined, undefined, "aceptado"),
-        fetchApartments(),
-        fetchRecibos(),
+        fetchReporteCobranza(),
         fetchTasaBcv().catch(() => null),
       ]);
       setPagosPendientes(pagosPend);
@@ -149,8 +92,12 @@ export default function AdminInicioPage() {
       });
       setPagosAceptados(aceptadosOrdenados);
       const todosPagos = [...pagosPend, ...pagosAcept];
-      const metricasCalculadas = calcularMetricas(todosPagos, recibos, apts.length);
-      setMetricas(metricasCalculadas);
+      setMetricas({
+        pagosRegistrados: todosPagos.length,
+        apartamentosConDeudas: reporte.resumen.morosos,
+        apartamentosSinDeudasActivas: reporte.resumen.alDia,
+        pagosEnRevision: reporte.resumen.enRevision,
+      });
       setTasaBcv(tasaRes ? tasaRes.promedio : null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al cargar datos");
@@ -299,7 +246,7 @@ export default function AdminInicioPage() {
               </span>
             </div>
             <p className="text-2xl font-bold text-foreground">{metricas.apartamentosConDeudas}</p>
-            <p className="mt-1 text-xs text-muted-foreground">Morosos (condominio o cuotas especiales)</p>
+            <p className="mt-1 text-xs text-muted-foreground">Con saldo pendiente</p>
           </div>
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <div className="mb-3 flex items-start justify-between">
@@ -318,16 +265,16 @@ export default function AdminInicioPage() {
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <div className="mb-3 flex items-start justify-between">
               <span className="text-sm font-medium text-muted-foreground">
-                Deudas cuotas especiales
+                Pagos en revisión
               </span>
               <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/20">
                 <svg className="h-5 w-5 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </span>
             </div>
-            <p className="text-2xl font-bold text-foreground">{metricas.apartamentosSoloDeudaCuotasEspeciales}</p>
-            <p className="mt-1 text-xs text-muted-foreground">Solo cuotas especiales</p>
+            <p className="text-2xl font-bold text-foreground">{metricas.pagosEnRevision}</p>
+            <p className="mt-1 text-xs text-muted-foreground">Pendientes de aceptación</p>
           </div>
         </div>
       </div>
