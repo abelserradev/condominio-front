@@ -131,6 +131,9 @@ export default function AdminResumenPage() {
     enRevision: 0,
     total: 0,
   });
+  const [filtroExcel, setFiltroExcel] = useState<
+    "todos" | "al_dia" | "moroso"
+  >("todos");
   const [listaRapidos, setListaRapidos] = useState<AptPago[]>([]);
 
   useEffect(() => {
@@ -168,7 +171,7 @@ export default function AdminResumenPage() {
       setDescargando(true);
       setEstadoJob("pending");
       setErrorDescarga(null);
-      await descargarReporteCobranzaExcel(undefined, setEstadoJob);
+      await descargarReporteCobranzaExcel(filtroExcel, setEstadoJob);
     } catch (err) {
       setEstadoJob("failed");
       setErrorDescarga(
@@ -205,6 +208,23 @@ export default function AdminResumenPage() {
         <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-3">
           <h1 className="text-xl font-bold text-slate-800 md:text-2xl">Resumen del condominio</h1>
           <div className="flex flex-wrap items-center gap-2">
+            <label className="flex items-center gap-2 text-sm text-slate-600">
+              <span className="sr-only">Filtro del Excel</span>
+              <select
+                value={filtroExcel}
+                onChange={(e) =>
+                  setFiltroExcel(
+                    e.target.value as "todos" | "al_dia" | "moroso",
+                  )
+                }
+                disabled={descargando}
+                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 disabled:opacity-60"
+              >
+                <option value="todos">Excel: todos</option>
+                <option value="al_dia">Excel: al día</option>
+                <option value="moroso">Excel: morosos</option>
+              </select>
+            </label>
             <button
               type="button"
               onClick={handleDescargarExcel}
