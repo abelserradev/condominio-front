@@ -1,4 +1,4 @@
-import { obtenerCsrfToken } from "../../api";
+import { obtenerCsrfToken } from "../auth";
 
 describe("obtenerCsrfToken", () => {
   const originalFetch = globalThis.fetch;

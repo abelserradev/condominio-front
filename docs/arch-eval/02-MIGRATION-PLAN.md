@@ -11,11 +11,11 @@
 
 **Done:** `lib/api.ts` no crece; tests y `lib:size` en CI.
 
-## Phase 2: Split API por bounded context (ADR-F001)
+## Phase 2: Split API por bounded context (ADR-F001) ✅ (2026-09-13)
 
-`lib/api/payments.ts`, `recibos.ts`, `auth.ts`, `super.ts`, `index.ts` re-export backward compatible.
+Módulos en `lib/api/`: `http-session`, `auth`, `portal`, `payments`, `recibos`, `apartments`, `avisos`, `super`, `owners` + barrel `index.ts`. `@/lib/api` → re-export del barrel.
 
-**Metric:** dep_graph `lib` → varios submodules; co-change api↔pages baja en siguiente ventana git.
+**Metric:** `lib/api.ts` <5 LOC; ningún submodule >400 LOC salvo evolución futura de `recibos`.
 
 ## Phase 3: Feature extraction (ADR-F002)
 
