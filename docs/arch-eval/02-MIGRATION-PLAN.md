@@ -2,13 +2,14 @@
 
 > Strategy: **evolve in place** — split `lib/api` + feature hooks; Next sigue como único deploy.
 
-## Phase 1: Guardrails
+## Phase 1: Guardrails ✅ (2026-09-13)
 
 - ESLint `import/no-cycle` en `lib/**`.
-- Regla CI: ningún archivo en `lib/` >400 LOC (warn → error tras split).
-- 3 smoke tests en `lib/api/__tests__/` (auth headers, CSRF helper, base URL).
+- CI `pnpm run lib:size`: ningún archivo en `lib/` >400 LOC (excepto `lib/api.ts` hasta ADR-F001).
+- Smoke tests: `lib/api/client-core.ts` + `lib/api/__tests__/` (base URL, auth headers, CSRF).
+- Jest con `ts-jest` para TypeScript en tests.
 
-**Done:** `lib/api.ts` no crece; tests obligatorios en CI.
+**Done:** `lib/api.ts` no crece; tests y `lib:size` en CI.
 
 ## Phase 2: Split API por bounded context (ADR-F001)
 

@@ -1,14 +1,10 @@
-import { resolveBackendUrl } from "./backend-url";
+import {
+  buildJsonAuthHeaders,
+  buildMultipartAuthHeaders,
+  resolveApiBaseUrl,
+} from "./api/client-core";
 
-const getBaseUrl = (): string => {
-  if (globalThis.window !== undefined) {
-    return "/api";
-  }
-
-  return resolveBackendUrl(
-    process.env.API_PROXY_TARGET ?? process.env.NEXT_PUBLIC_API_URL,
-  );
-};
+const getBaseUrl = (): string => resolveApiBaseUrl();
 
 const BUILDING_SLUG_COOKIE_RE = /(?:^|;\s*)building_slug=([^;]+)/;
 const PLATFORM_MODE_COOKIE_RE = /(?:^|;\s*)platform_mode=1(?:;|$)/;
@@ -58,21 +54,18 @@ function getAuthToken(): string | null {
 }
 
 function getAuthHeaders(): HeadersInit {
-  const token = getAuthToken();
-  return {
-    "Content-Type": "application/json",
-    "x-building-slug": getBuildingSlug(),
-    ...(token && { Authorization: `Bearer ${token}` }),
-  };
+  return buildJsonAuthHeaders({
+    buildingSlug: getBuildingSlug(),
+    bearerToken: getAuthToken(),
+  });
 }
 
 // Headers base sin Content-Type (para requests con FormData)
 function getBaseHeaders(): HeadersInit {
-  const token = getAuthToken();
-  return {
-    "x-building-slug": getBuildingSlug(),
-    ...(token && { Authorization: `Bearer ${token}` }),
-  };
+  return buildMultipartAuthHeaders({
+    buildingSlug: getBuildingSlug(),
+    bearerToken: getAuthToken(),
+  });
 }
 
 export async function obtenerCsrfToken(): Promise<string> {
