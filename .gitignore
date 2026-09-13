@@ -65,3 +65,11 @@ next-env.d.ts
 # Cursor / docs locales
 .cursor/
 DOCUMENTACION.md
+
+# Índices y artefactos de agentes (no versionar)
+.codegraph/
+.atl/
+graphify-out/
+lat.md/
+docs/code-audit/analysis/
+docs/arch-eval/analysis/
