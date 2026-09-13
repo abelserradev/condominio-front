@@ -17,7 +17,7 @@ Módulos en `lib/api/`: `http-session`, `auth`, `portal`, `payments`, `recibos`,
 
 **Metric:** `lib/api.ts` <5 LOC; ningún submodule >400 LOC salvo evolución futura de `recibos`.
 
-## Phase 3: Feature extraction (ADR-F002) — en progreso (2026-09-13)
+## Phase 3: Feature extraction (ADR-F002) ✅ (2026-09-13)
 
 - `reportar-pago`: bootstrap, `use-reportar-pago-deuda`, `use-comprobante-upload`, utils/comprobante, componentes (comprobante, meses/recibos, campos, ubicación)
 - `admin/recibos`: listas, modales (`cargar-recibo`, confirmación pago), `recibo-pago-links`, `utils/display`
