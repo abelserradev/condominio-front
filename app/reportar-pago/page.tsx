@@ -3,194 +3,40 @@
 import { useState, useEffect, useCallback, useRef, type SubmitEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import imageCompression from "browser-image-compression";
 import {
-  fetchBanks,
   postPayment,
   fetchRecibos,
   fetchAbono,
-  fetchTasaBcv,
-  fetchTasaBcvPorFecha,
   extractComprobante,
-  fetchBuildingLayout,
-  type Bank,
   type Recibo,
-  type Apartment,
 } from "@/lib/api";
-import { getDatosPropietario, esPropietarioLogueado } from "@/lib/hooks/useRequireRol";
-
-function normalizarFechaAISO(fechaRaw: string): string | null {
-  const s = String(fechaRaw).trim();
-  if (!s) return null;
-  const isoMatch = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
-  if (isoMatch) {
-    const [, y, m, d] = isoMatch;
-    const date = new Date(Number.parseInt(y, 10), Number.parseInt(m, 10) - 1, Number.parseInt(d, 10));
-    if (!Number.isNaN(date.getTime())) return isoMatch[0];
-    return null;
-  }
-  const ddmmyyyy = /(\d{1,2})[/-](\d{1,2})[/-](\d{4})/.exec(s);
-  if (ddmmyyyy) {
-    const [, d, m, y] = ddmmyyyy;
-    const iso = `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
-    const date = new Date(Number.parseInt(y, 10), Number.parseInt(m, 10) - 1, Number.parseInt(d, 10));
-    if (!Number.isNaN(date.getTime())) return iso;
-    return null;
-  }
-  return null;
-}
-
-function esFechaRazonable(iso: string): boolean {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return false;
-  const hoy = new Date();
-  hoy.setHours(23, 59, 59, 999);
-  const haceUnAnio = new Date();
-  haceUnAnio.setFullYear(haceUnAnio.getFullYear() - 1);
-  return date <= hoy && date >= haceUnAnio;
-}
-
-function formatFechaParaUsuario(iso: string): string {
-  const [y, m, d] = iso.split("-");
-  return `${d}/${m}/${y}`;
-}
-
-function filterRecibosByMeses(recibos: Recibo[], mesesSet: Set<number>): Recibo[] {
-  return recibos.filter((recibo) =>
-    recibo.meses.some((mes) => mesesSet.has(mes))
-  );
-}
-
-function getLabelTextoArchivo(
-  comprimiendo: boolean,
-  extrayendoOcr: boolean,
-  archivo: File | null,
-): string {
-  if (comprimiendo) {
-    return "Comprimiendo imagen...";
-  }
-  if (extrayendoOcr) {
-    return "Extrayendo datos del comprobante...";
-  }
-  if (archivo) {
-    return `Archivo: ${archivo.name} (${(archivo.size / 1024 / 1024).toFixed(2)} MB)`;
-  }
-  return "Seleccionar imagen desde dispositivo";
-}
-
-type ValidacionArchivoResult =
-  | { valido: true }
-  | { valido: false; error: string };
-
-function validarArchivo(file: File): ValidacionArchivoResult {
-  const MAX_SIZE_MB = 5;
-  const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
-
-  if (file.size > MAX_SIZE_BYTES) {
-    return { valido: false, error: `El archivo es demasiado grande. Tamaño máximo: ${MAX_SIZE_MB}MB` };
-  }
-
-  if (!file.type.startsWith("image/")) {
-    return { valido: false, error: "Solo se permiten archivos de imagen" };
-  }
-
-  return { valido: true };
-}
-
-async function comprimirImagen(file: File): Promise<File> {
-  const options = {
-    maxSizeMB: 2,
-    maxWidthOrHeight: 1920,
-    useWebWorker: true,
-    fileType: file.type,
-  };
-  return imageCompression(file, options);
-}
-
-function encontrarBancoPorNombre(bancos: Bank[], nombreExtraido: string): Bank | undefined {
-  const bancoLower = nombreExtraido.toLowerCase();
-  const bancoMatch = bancos.find(
-    (b) =>
-      bancoLower.includes(b.nombre.toLowerCase()) ||
-      b.nombre.toLowerCase().includes(bancoLower)
-  );
-  if (bancoMatch) return bancoMatch;
-
-  if (bancoLower.includes("pagomóvil") || bancoLower.includes("bdv")) {
-    return bancos.find((b) => b.nombre.toLowerCase().includes("banco de venezuela"));
-  }
-  return undefined;
-}
-
-function procesarFechaExtraida(fechaRaw: string | undefined): string | null {
-  if (!fechaRaw) return null;
-  const normalizada = normalizarFechaAISO(fechaRaw);
-  if (normalizada) return normalizada;
-
-  const d = /^(\d{4})-(\d{2})-(\d{2})/.exec(fechaRaw);
-  return d ? d[0] : fechaRaw;
-}
-
-async function obtenerTasaParaCalculo(
-  fecha: string | null,
-  tasaActual: number | null,
-): Promise<{ tasa: number | null; error: string | null }> {
-  if (!fecha || !esFechaRazonable(fecha)) {
-    return { tasa: tasaActual, error: null };
-  }
-
-  try {
-    const data = await fetchTasaBcvPorFecha(fecha);
-    return { tasa: data.promedio, error: null };
-  } catch {
-    try {
-      const data = await fetchTasaBcv();
-      return { tasa: data.promedio, error: "No hay tasa histórica para esa fecha. Usando tasa del día actual." };
-    } catch {
-      return { tasa: tasaActual, error: "No hay tasa histórica para esa fecha. Usando tasa del día actual." };
-    }
-  }
-}
-
-function calcularMontosDesdeOcr(
-  extract: { montoBs?: number | null; montoUsd?: number | null },
-  tasa: number | null,
-): { montoBs: string | null; montoUsd: string | null } {
-  let montoBs: string | null = null;
-  let montoUsd: string | null = null;
-
-  if (extract.montoBs != null && extract.montoBs > 0) {
-    montoBs = extract.montoBs.toFixed(2);
-  }
-  if (extract.montoUsd != null && extract.montoUsd > 0) {
-    montoUsd = extract.montoUsd.toFixed(2);
-  } else if (extract.montoBs != null && extract.montoBs > 0 && tasa != null && tasa > 0) {
-    montoUsd = (extract.montoBs / tasa).toFixed(2);
-  }
-
-  return { montoBs, montoUsd };
-}
-
-const INPUT_NUMBER_CLASS =
-  "w-full rounded-lg border border-border bg-card px-3 py-2 text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none";
-
-const MESES = [
-  "Enero",
-  "Febrero",
-  "Marzo",
-  "Abril",
-  "Mayo",
-  "Junio",
-  "Julio",
-  "Agosto",
-  "Septiembre",
-  "Octubre",
-  "Noviembre",
-  "Diciembre",
-];
+import { INPUT_NUMBER_CLASS, MESES_NOMBRES } from "./constants";
+import { useReportarPagoBootstrap } from "./hooks/use-reportar-pago-bootstrap";
+import { filterRecibosByMeses } from "./utils/recibos";
+import {
+  calcularMontosDesdeOcr,
+  comprimirImagen,
+  encontrarBancoPorNombre,
+  formatFechaParaUsuario,
+  getLabelTextoArchivo,
+  obtenerTasaParaCalculo,
+  procesarFechaExtraida,
+  validarArchivo,
+} from "./utils/comprobante";
 
 export default function ReportarPagoPage() {
   const router = useRouter();
+  const {
+    bancos,
+    cargandoBancos,
+    errorBancos,
+    layoutApartamentos,
+    cargandoLayout,
+    tasaBcv: tasaBcvBootstrap,
+    propietarioLogueado,
+    pisoInicial,
+    apartamentoInicial,
+  } = useReportarPagoBootstrap();
   const [piso, setPiso] = useState("");
   const [apartamento, setApartamento] = useState("");
   const [mesesSeleccionados, setMesesSeleccionados] = useState<number[]>([]);
@@ -200,9 +46,6 @@ export default function ReportarPagoPage() {
   const [montoUsd, setMontoUsd] = useState("");
   const [montoBs, setMontoBs] = useState("");
   const [archivo, setArchivo] = useState<File | null>(null);
-  const [bancos, setBancos] = useState<Bank[]>([]);
-  const [cargandoBancos, setCargandoBancos] = useState(true);
-  const [errorBancos, setErrorBancos] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [errorEnvio, setErrorEnvio] = useState<string | null>(null);
   const [recibosPendientes, setRecibosPendientes] = useState<Recibo[]>([]);
@@ -211,22 +54,21 @@ export default function ReportarPagoPage() {
   const [comprimiendo, setComprimiendo] = useState(false);
   const [extrayendoOcr, setExtrayendoOcr] = useState(false);
   const [errorOcr, setErrorOcr] = useState<string | null>(null);
-  const [tasaBcv, setTasaBcv] = useState<number | null>(null);
+  const [tasaBcv, setTasaBcv] = useState<number | null>(tasaBcvBootstrap);
   const [tasaBcvFecha, setTasaBcvFecha] = useState<string | null>(null);
   const [errorTasaHistorica, setErrorTasaHistorica] = useState<string | null>(null);
   const [advertenciaSobrePago, setAdvertenciaSobrePago] = useState<string | null>(null);
   const [abono, setAbono] = useState<number>(0);
   const ocrMontosAplicadosRef = useRef(false);
-  const [propietarioLogueado, setPropietarioLogueado] = useState(false);
-  const [layoutApartamentos, setLayoutApartamentos] = useState<Apartment[]>([]);
-  const [cargandoLayout, setCargandoLayout] = useState(true);
+  useEffect(() => {
+    setTasaBcv(tasaBcvBootstrap);
+  }, [tasaBcvBootstrap]);
 
   useEffect(() => {
-    fetchBuildingLayout()
-      .then(setLayoutApartamentos)
-      .catch(() => setLayoutApartamentos([]))
-      .finally(() => setCargandoLayout(false));
-  }, []);
+    if (!pisoInicial) return;
+    setPiso(pisoInicial);
+    setApartamento(apartamentoInicial);
+  }, [pisoInicial, apartamentoInicial]);
 
   const pisosDisponibles = [...new Set(layoutApartamentos.map((a) => a.piso))].sort(
     (a, b) => a - b,
@@ -237,28 +79,6 @@ export default function ReportarPagoPage() {
         .map((a) => a.numero)
         .sort((a, b) => a - b)
     : [];
-
-  useEffect(() => {
-    if (!esPropietarioLogueado()) return;
-    const datos = getDatosPropietario();
-    if (!datos) return;
-    setPropietarioLogueado(true);
-    setPiso(String(datos.piso));
-    setApartamento(String(datos.apartamento));
-  }, []);
-
-  useEffect(() => {
-    fetchBanks()
-      .then(setBancos)
-      .catch(() => setErrorBancos("No se pudieron cargar los bancos"))
-      .finally(() => setCargandoBancos(false));
-  }, []);
-
-  useEffect(() => {
-    fetchTasaBcv()
-    .then((data) => setTasaBcv(data.promedio))
-    .catch(() => setTasaBcv(null))
-  }, [])
 
   const actualizarMontosDesdeRecibos = useCallback((
     recibos: Recibo[],
@@ -769,7 +589,7 @@ export default function ReportarPagoPage() {
             Mes o meses a pagar
           </span>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {MESES.map((nombre, i) => (
+            {MESES_NOMBRES.map((nombre, i) => (
               <label
                 key={nombre}
                 className="flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 hover:bg-muted"
@@ -832,7 +652,7 @@ export default function ReportarPagoPage() {
                           </p>
                           <p className="text-xs text-muted-foreground">
                             {recibo.meses
-                              .map((m) => MESES[m - 1])
+                              .map((m) => MESES_NOMBRES[m - 1])
                               .join(", ")}
                           </p>
                           {montoPagado > 0 && (

@@ -17,12 +17,12 @@ Módulos en `lib/api/`: `http-session`, `auth`, `portal`, `payments`, `recibos`,
 
 **Metric:** `lib/api.ts` <5 LOC; ningún submodule >400 LOC salvo evolución futura de `recibos`.
 
-## Phase 3: Feature extraction (ADR-F002)
+## Phase 3: Feature extraction (ADR-F002) — en progreso (2026-09-13)
 
-- `app/reportar-pago/hooks/use-reportar-pago.ts` + componentes
-- `app/admin/recibos/components/*`
+- `reportar-pago`: `hooks/use-reportar-pago-bootstrap`, `utils/comprobante`, `constants`
+- `admin/recibos`: `components/recibo-pago-links`, `utils/display`
 
-**Done:** páginas críticas <400 LOC.
+**Done parcial:** páginas ~740 LOC (objetivo <400 en PRs siguientes).
 
 ## Rollback
 

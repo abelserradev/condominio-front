@@ -14,173 +14,22 @@ import {
   type Payment,
   type Recibo,
 } from "@/lib/api";
-
-const MESES = [
-  "Enero",
-  "Febrero",
-  "Marzo",
-  "Abril",
-  "Mayo",
-  "Junio",
-  "Julio",
-  "Agosto",
-  "Septiembre",
-  "Octubre",
-  "Noviembre",
-  "Diciembre",
-];
-
-function formatearMonto(monto: number): string {
-  return new Intl.NumberFormat("es-VE", {
-    style: "currency",
-    currency: "USD",
-  }).format(monto);
-}
-
-function obtenerColorEstado(estado?: string): string {
-  switch (estado) {
-    case "aceptado":
-      return "bg-green-100 text-green-800";
-    case "rechazado":
-      return "bg-red-100 text-red-800";
-    default:
-      return "bg-yellow-100 text-yellow-800";
-  }
-}
-
-function obtenerTextoEstado(estado?: string): string {
-  switch (estado) {
-    case "aceptado":
-      return "Aceptado";
-    case "rechazado":
-      return "Rechazado";
-    default:
-      return "Pendiente";
-  }
-}
-
-function compararPorCreatedAtDesc<T extends { createdAt?: string }>(
-  a: T,
-  b: T,
-): number {
-  const fechaA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-  const fechaB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-  return fechaB - fechaA;
-}
-
-function formatearMesesNumeros(meses: number[]): string {
-  return meses.map((m) => MESES[m - 1]).join(", ");
-}
-
-function formatearFechaUtc(fecha: string | Date): string {
-  if (!fecha) return "N/A";
-  const date = typeof fecha === "string" ? new Date(fecha) : fecha;
-  const año = date.getUTCFullYear();
-  const mes = String(date.getUTCMonth() + 1).padStart(2, "0");
-  const día = String(date.getUTCDate()).padStart(2, "0");
-  return `${día}/${mes}/${año}`;
-}
-
-function obtenerPagosRelacionadosRecibo(
-  recibo: Recibo,
-  pagosLista: Payment[],
-): Payment[] {
-  return pagosLista.filter(
-    (p) => p.recibosPagados?.includes(recibo._id) && p.estado === "aceptado",
-  );
-}
-
-function obtenerMontoAbonoPago(recibo: Recibo, pago: Payment): number {
-  const abono = recibo.abonos?.find((a) => a.paymentId === pago._id);
-  return abono?.monto ?? pago.montoUsd;
-}
-
-function obtenerRecibosRelacionadosPago(
-  pago: Payment,
-  recibosLista: Recibo[],
-): Recibo[] {
-  if (!pago.recibosPagados?.length) return [];
-  return recibosLista.filter((r) => pago.recibosPagados?.includes(r._id));
-}
-
-function textoBotonConfirmacion(
-  procesando: boolean,
-  accion: "aceptar" | "rechazar" | null,
-): string {
-  if (procesando) return "Procesando...";
-  if (accion === "aceptar") return "Aceptar";
-  return "Rechazar";
-}
-
-function clasesBotonConfirmacion(
-  accion: "aceptar" | "rechazar" | null,
-): string {
-  if (accion === "aceptar") return "bg-green-600 hover:bg-green-700";
-  return "bg-red-600 hover:bg-red-700";
-}
-
-function ResumenMontosRecibo({ recibo }: Readonly<{ recibo: Recibo }>) {
-  const montoPagado = recibo.montoPagado ?? 0;
-  if (montoPagado <= 0) return null;
-  return (
-    <div className="mt-1">
-      <p className="text-sm text-green-700">
-        Pagado: {formatearMonto(montoPagado)}
-      </p>
-      <p className="text-sm text-amber-700">
-        Pendiente: {formatearMonto(recibo.montoUsd - montoPagado)}
-      </p>
-    </div>
-  );
-}
-
-function PagosRelacionadosRecibo({
-  recibo,
-  pagosLista,
-}: Readonly<{
-  recibo: Recibo;
-  pagosLista: Payment[];
-}>) {
-  const pagosRelacionados = obtenerPagosRelacionadosRecibo(recibo, pagosLista);
-  if (pagosRelacionados.length === 0) return null;
-  return (
-    <div className="mt-3 rounded-lg bg-green-50 p-3">
-      <p className="text-xs font-medium text-green-800">Pagado por:</p>
-      {pagosRelacionados.map((pago) => (
-        <p key={pago._id} className="mt-1 text-sm text-green-700">
-          • Pago #{pago.numeroComprobante} -{" "}
-          {formatearMonto(obtenerMontoAbonoPago(recibo, pago))} (
-          {formatearFechaUtc(pago.fechaPago)})
-        </p>
-      ))}
-    </div>
-  );
-}
-
-function RecibosPagadosPorPago({
-  pago,
-  recibosLista,
-}: Readonly<{
-  pago: Payment;
-  recibosLista: Recibo[];
-}>) {
-  const recibosRelacionados = obtenerRecibosRelacionadosPago(pago, recibosLista);
-  if (recibosRelacionados.length === 0) return null;
-  return (
-    <div className="mt-4 rounded-lg bg-blue-50 p-3">
-      <p className="text-xs font-medium text-blue-800">
-        Recibos pagados con este pago:
-      </p>
-      {recibosRelacionados.map((reciboRelacionado) => (
-        <p key={reciboRelacionado._id} className="mt-1 text-sm text-blue-700">
-          • {reciboRelacionado.tipoDeuda} -{" "}
-          {formatearMesesNumeros(reciboRelacionado.meses)} -{" "}
-          {formatearMonto(reciboRelacionado.montoUsd)}
-        </p>
-      ))}
-    </div>
-  );
-}
+import {
+  PagosRelacionadosRecibo,
+  RecibosPagadosPorPago,
+  ResumenMontosRecibo,
+} from "./components/recibo-pago-links";
+import {
+  MESES,
+  clasesBotonConfirmacion,
+  compararPorCreatedAtDesc,
+  formatearFechaUtc,
+  formatearMesesNumeros,
+  formatearMonto,
+  obtenerColorEstado,
+  obtenerTextoEstado,
+  textoBotonConfirmacion,
+} from "./utils/display";
 
 function AdminRecibosContent() {
   const router = useRouter();
