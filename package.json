@@ -11,6 +11,7 @@
     "lint:check": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "jest --passWithNoTests --forceExit",
+    "lib:size": "node scripts/check-lib-file-size.mjs",
     "prepare": "husky || true"
   },
   "lint-staged": {
@@ -27,16 +28,19 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/jest": "^30.0.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@types/jest": "^30.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.3.5",
+    "eslint-import-resolver-typescript": "4.4.4",
+    "eslint-plugin-import": "2.32.0",
     "husky": "^9.0.0",
     "jest": "^30.0.0",
     "lint-staged": "^16.0.0",
     "tailwindcss": "^4",
+    "ts-jest": "^29.4.6",
     "typescript": "^5"
   },
   "jest": {
@@ -48,6 +52,14 @@
       "**/__tests__/**/*.test.ts",
       "**/__tests__/**/*.test.tsx"
     ],
+    "transform": {
+      "^.+\\.(t|j)sx?$": [
+        "ts-jest",
+        {
+          "tsconfig": "tsconfig.json"
+        }
+      ]
+    },
     "passWithNoTests": true
   }
 }

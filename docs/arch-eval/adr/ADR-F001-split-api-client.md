@@ -1,6 +1,6 @@
 # ADR-F001: Dividir lib/api por contexto de dominio
 
-> **Status**: proposed · **Weakness**: WEAK-F01
+> **Status**: accepted · **Weakness**: WEAK-F01 (mitigado 2026-09-13)
 
 ## Context
 

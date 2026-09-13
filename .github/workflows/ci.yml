@@ -58,6 +58,9 @@ jobs:
       - name: Unit tests
         run: pnpm run test
 
+      - name: lib/ file size guard (except lib/api.ts)
+        run: pnpm run lib:size
+
   security-audit:
     name: Security Audit
     runs-on: ubuntu-latest
