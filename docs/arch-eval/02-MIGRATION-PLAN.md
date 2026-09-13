@@ -19,10 +19,10 @@ Módulos en `lib/api/`: `http-session`, `auth`, `portal`, `payments`, `recibos`,
 
 ## Phase 3: Feature extraction (ADR-F002) — en progreso (2026-09-13)
 
-- `reportar-pago`: `hooks/use-reportar-pago-bootstrap`, `utils/comprobante`, `constants`
-- `admin/recibos`: `components/recibo-pago-links`, `utils/display`
+- `reportar-pago`: bootstrap, `use-reportar-pago-deuda`, `use-comprobante-upload`, utils/comprobante, componentes (comprobante, meses/recibos, campos, ubicación)
+- `admin/recibos`: listas, modales (`cargar-recibo`, confirmación pago), `recibo-pago-links`, `utils/display`
 
-**Done parcial:** páginas ~740 LOC (objetivo <400 en PRs siguientes).
+**Métrica:** `app/reportar-pago/page.tsx` y `app/admin/recibos/page.tsx` **<400 LOC** (guardrail `lib:size` no aplica a `app/`; revisión manual en PR).
 
 ## Rollback
 
