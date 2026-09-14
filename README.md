@@ -1,155 +1,155 @@
 # Condominio Platform — Frontend
 
-Frontend Next.js para la plataforma SaaS multi-tenant de gestión de condominios. Soporta múltiples edificios con subdominios dinámicos y autenticación por roles.
+Frontend [Next.js](https://nextjs.org/) para la plataforma SaaS multi-tenant de gestión de condominios. Cada edificio (tenant) se sirve por subdominio; la raíz de la plataforma concentra registro de edificios y panel SuperAdmin.
+
+**Repositorio:** [abelserradev/condominio-front](https://github.com/abelserradev/condominio-front)  
+**Backend asociado:** [abelserradev/project-condominio](https://github.com/abelserradev/project-condominio)
 
 ## Características principales
 
-- **Multi-tenant por subdominio:** Cada edificio accede por su propio subdominio
-- **Roles:** SuperAdmin, Admin de edificio, Propietario/Inquilino
-- **Responsive mobile-first:** Diseño optimizado para móvil con escalado a desktop
-- **Reporte de pagos:** Formulario con carga de comprobantes y compresión de imágenes
-- **Portal de residentes:** Consulta de recibos y reporte de pagos sin login
-- **Panel de administración:** Gestión de recibos, pagos y configuración
+- **Multi-tenant por subdominio:** portal del edificio en `{slug}.tu-dominio.com` (en local: `{slug}.localhost:3000`)
+- **Roles:** SuperAdmin (plataforma), admin de edificio, propietario/inquilino (portal y login de residentes)
+- **Portal público:** recibos, reporte de pagos con comprobante, tasa BCV, reglamentos y avisos
+- **Panel admin:** recibos, pagos reportados, propietarios, resumen, avisos y reglamentos
+- **Proxy `/api`:** el middleware reescribe peticiones al backend en runtime (útil en Docker/Coolify sin rebuild)
+- **Mobile-first:** Tailwind CSS 4
 
-## Stack tecnológico
+## Stack
 
-- **Framework:** [Next.js](https://nextjs.org/) 16 (App Router)
-- **UI:** React 19
-- **Lenguaje:** TypeScript
-- **Estilos:** Tailwind CSS 4
-- **Compresión:** browser-image-compression
-- **Client-side routing:** next/navigation
+| Capa | Tecnología |
+|------|------------|
+| Framework | Next.js 16 (App Router) |
+| UI | React 19 |
+| Lenguaje | TypeScript |
+| Estilos | Tailwind CSS 4 |
+| Imágenes | browser-image-compression |
+| Gestor de paquetes | pnpm 11.3 (Node 22 en CI) |
 
 ## Requisitos
 
-- Node.js 18 o superior
-- Backend API corriendo (por defecto en http://localhost:3001)
-- pnpm o npm
+- Node.js **22** (recomendado; mínimo 18)
+- [pnpm](https://pnpm.io/) (`corepack enable` si usas Node oficial)
+- API backend en ejecución (por defecto `http://localhost:3001`)
 
-## Instalación
-
-### Con Docker
+## Puesta en marcha (desarrollo)
 
 ```bash
-cd frontend/condominio
-
-# Construir la imagen
-docker build -t condominio-frontend .
-
-# Ejecutar (reemplaza la URL del backend según tu entorno)
-docker run -p 3000:3000 -e NEXT_PUBLIC_API_URL=http://localhost:3001 condominio-frontend
-```
-
-La aplicación estará disponible en el puerto **3000**.
-
-### Sin Docker (recomendado para desarrollo)
-
-1. Tener el backend corriendo en http://localhost:3001
-2. Crear el archivo `.env.local` (ver sección de variables)
-3. Ejecutar:
-
-```bash
-cd frontend/condominio
+git clone https://github.com/abelserradev/condominio-front.git
+cd condominio-front
 pnpm install
+# Crea .env.local según la tabla de variables (abajo)
 pnpm run dev
 ```
 
-La aplicación estará en http://localhost:3000
+- **Raíz plataforma (SuperAdmin / registro):** [http://localhost:3000](http://localhost:3000)
+- **Portal de un edificio en local:** [http://residencia-sofia.localhost:3000](http://residencia-sofia.localhost:3000) (slug configurable con `NEXT_PUBLIC_DEV_BUILDING_SLUG`)
+
+En `localhost:3000` sin subdominio, el middleware asume el slug de desarrollo (`residencia-sofia` por defecto).
 
 ## Variables de entorno
 
-Crear un archivo `.env.local` en `frontend/condominio/`:
+Crear `.env.local` en la raíz del repositorio:
 
-| Variable | Descripción | Valor por defecto |
-|----------|-------------|-------------------|
-| `NEXT_PUBLIC_API_URL` | URL base del backend API | `http://localhost:3001` |
+| Variable | Descripción | Por defecto / notas |
+|----------|-------------|---------------------|
+| `NEXT_PUBLIC_API_URL` | URL pública del backend para el navegador | `http://localhost:3001`. Si el cliente usa rutas relativas `/api`, el proxy del middleware puede bastar en server-side |
+| `NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN` | Dominio raíz en producción (sin subdominio tenant) | Ej. `buildforge.work`. En CI se usa para validar el build |
+| `NEXT_PUBLIC_DEV_BUILDING_SLUG` | Slug del edificio cuando entras por `localhost:3000` | `residencia-sofia` |
+| `API_PROXY_TARGET` | URL del backend **solo servidor** (middleware/SSR). Prioridad sobre inferencia por dominio | En Docker: `http://condominio-api:3001` |
+| `PORT` | Puerto HTTP en producción | `3000` |
 
-**Opcional:**
+**Producción / Docker:** `NEXT_PUBLIC_*` se inyectan en **build time**; `API_PROXY_TARGET` en **runtime** (ver `Dockerfile`).
 
-| Variable | Descripción |
-|----------|-------------|
-| `PORT` | Puerto donde escucha Next.js (en producción/Docker) |
+No subas `.env.local` al repositorio.
 
-**Importante:** No subir nunca archivos `.env.local` al repositorio.
+## Docker
+
+```bash
+docker build -t condominio-frontend \
+  --build-arg NEXT_PUBLIC_API_URL=https://api.tu-dominio.com \
+  --build-arg NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN=tu-dominio.com \
+  .
+
+docker run -p 3000:3000 \
+  -e API_PROXY_TARGET=http://host.docker.internal:3001 \
+  condominio-frontend
+```
+
+Ajusta URLs según tu red (Coolify, compose, etc.).
+
+## Scripts
+
+| Comando | Uso |
+|---------|-----|
+| `pnpm run dev` | Servidor de desarrollo |
+| `pnpm run build` | Build de producción |
+| `pnpm run start` | Servir build |
+| `pnpm run lint:check` | ESLint (CI) |
+| `pnpm run typecheck` | `tsc --noEmit` |
+| `pnpm run test` | Jest (unitarios en `lib/api/__tests__`) |
+| `pnpm run lib:size` | Guardrail de tamaño del cliente API |
 
 ## Estructura del proyecto
 
 ```
-frontend/condominio/
+condominio-front/
 ├── app/
-│   ├── layout.tsx              # Layout raíz con metadata
-│   ├── page.tsx                # Home del edificio (subdominio)
-│   ├── globals.css             # Estilos globales
-│   ├── reportar-pago/          # Formulario reporte de pagos
-│   ├── recibos/                # Consulta de recibos
-│   ├── reglamentos/            # Reglamentos del edificio
-│   ├── avisos/                 # Avisos de la administración
-│   ├── admin/
-│   │   ├── login/              # Login de administradores
-│   │   ├── inicio/             # Dashboard del admin
-│   │   ├── recibos/            # Gestión de recibos
-│   │   ├── pagos-aceptados/    # Listado de pagos
-│   │   └── resumen/            # Resumen del edificio
-│   ├── super/                  # Panel SuperAdmin
-│   │   ├── login/              # Login SuperAdmin
-│   │   ├── edificios/          # Gestión de edificios
-│   │   └── avisos-globales/    # Avisos de plataforma
-│   └── components/             # Componentes reutilizables
-│       ├── header.tsx          # Header con navegación
-│       ├── home/               # Componentes de la home
-│       ├── recibos/            # Grids de pisos/apartamentos
-│       └── super/              # Componentes del panel super
+│   ├── page.tsx                    # Home del tenant
+│   ├── registro/                   # Alta self-service de edificio (dominio raíz)
+│   ├── reportar-pago/              # Reporte de pagos + hooks/componentes
+│   ├── recibos/                    # Consulta de recibos
+│   ├── mi-apartamento/             # Portal propietario autenticado
+│   ├── reglamentos/ | avisos/
+│   ├── admin/                      # login, inicio, recibos, pagos, propietarios, avisos, resumen, reglamentos
+│   └── super/                      # login + panel edificios (SuperAdmin)
 ├── lib/
-│   └── api.ts                  # Cliente API y tipos
-├── public/                     # Archivos estáticos
-├── middleware.ts               # Middleware de subdominios
-└── README.md                   # Este archivo
+│   ├── api.ts                      # Reexport del cliente modular
+│   ├── api/                        # auth, payments, recibos, portal, super, …
+│   └── backend-url.ts              # Resolución de proxy al backend
+├── middleware.ts                   # Subdominios, cookies de tenant, proxy /api
+├── DOCUMENTACION.md                # Guía funcional (usuarios y admins)
+└── docs/                           # Auditorías y evaluaciones de arquitectura
 ```
 
 ## Flujos principales
 
-### Acceso por subdominio
+### Tenant y API
 
-- Cada edificio tiene su propio subdominio (ej. `mi-edificio.localhost`)
-- El middleware (`middleware.ts`) detecta el subdominio y lo pasa al layout
-- El cliente API incluye el slug del edificio en cada request (`x-building-slug`)
+1. El **host** determina si estás en modo plataforma o en un edificio (`middleware.ts`).
+2. En modo edificio se envían `x-building-slug` (y cookies) al backend.
+3. Las peticiones del navegador pueden ir a `/api/...` y el middleware las reescribe al backend (`getBackendProxyTarget()`).
 
-### Reporte de pagos (portal público)
+### Reporte de pago (público)
 
-1. Residente accede a `/reportar-pago`
-2. Selecciona piso/apartamento y meses a pagar
-3. El sistema muestra los recibos pendientes
-4. Adjunta comprobante (con compresión de imagen en cliente)
-5. Indica banco y monto
-6. El pago queda en estado "pendiente" hasta aprobación
+Residente elige ubicación y meses → adjunta comprobante (compresión en cliente) → pago **pendiente** hasta que admin acepta o rechaza en el panel.
 
-### Panel de administración
+### Administración
 
-1. Admin accede a `/admin/login`
-2. Se autentica con usuario/contraseña
-3. Token JWT se guarda en localStorage (`admin_token`)
-4. Sidebar con navegación a recibos, pagos, resumen
+Login en `/admin/login` → JWT en `localStorage` (`admin_token`) → rutas bajo `/admin/*` con CSRF en operaciones sensibles (vía `lib/api`).
 
 ### SuperAdmin
 
-1. Accede a `/super/login`
-2. Token con rol `super_admin` en `super_token`
-3. Gestiona edificios, suscripciones y avisos globales
+En el dominio raíz: `/super/login` → token `super_token` → gestión de edificios en `/super/(panel)/edificios`.
 
-## API Client
+## Calidad y CI
 
-El cliente API centralizado en `lib/api.ts` proporciona:
+El workflow `.github/workflows/ci.yml` ejecuta en push/PR a `main`, `develop` y ramas `desarrollo/**`:
 
-- Funciones por dominio: `fetchBanks`, `fetchTasaBCV`, `postPayment`, etc.
-- Manejo de CSRF token para POST requests
-- Headers de autenticación (Bearer desde localStorage)
-- Tipos TypeScript exportados: `Payment`, `Recibo`, `Apartment`, etc.
+1. `pnpm run lint:check` y `typecheck`
+2. `pnpm run build`
+3. `pnpm run test` y guardrail `lib:size`
 
-## Documentación adicional
+Reproduce localmente antes de abrir PR:
 
-- [Memoria del agente — Frontend](../../condominio/memoryFront.md)
-- [Plan SaaS Multi-Tenant](../../condominio/saas-multitenant-plan.md)
-- [Documentación general](../../.cursor/rules/condominio.mdc)
+```bash
+pnpm run lint:check && pnpm run typecheck && pnpm run build && pnpm run test
+```
+
+## Documentación relacionada
+
+- [DOCUMENTACION.md](./DOCUMENTACION.md) — rutas, flujos y guía para usuarios/administradores
+- [docs/arch-eval/](./docs/arch-eval/) — ADRs y plan de migración del cliente API
+- Backend: README y `specs/` en [project-condominio](https://github.com/abelserradev/project-condominio)
 
 ## Licencia
 
