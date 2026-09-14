@@ -7,11 +7,10 @@ Frontend [Next.js](https://nextjs.org/) para la plataforma SaaS multi-tenant de 
 
 ## Características principales
 
-- **Multi-tenant por subdominio:** portal del edificio en `{slug}.tu-dominio.com` (en local: `{slug}.localhost:3000`)
-- **Roles:** SuperAdmin (plataforma), admin de edificio, propietario/inquilino (portal y login de residentes)
-- **Portal público:** recibos, reporte de pagos con comprobante, tasa BCV, reglamentos y avisos
-- **Panel admin:** recibos, pagos reportados, propietarios, resumen, avisos y reglamentos
-- **Proxy `/api`:** el middleware reescribe peticiones al backend en runtime (útil en Docker/Coolify sin rebuild)
+- **Multi-tenant por subdominio:** portal del edificio en subdominio dedicado
+- **Roles:** SuperAdmin (plataforma), admin de edificio, propietario/inquilino
+- **Portal público:** recibos, reporte de pagos, tasa BCV, reglamentos y avisos
+- **Panel admin:** recibos, pagos, propietarios, resumen, avisos y reglamentos
 - **Mobile-first:** Tailwind CSS 4
 
 ## Stack
@@ -22,14 +21,13 @@ Frontend [Next.js](https://nextjs.org/) para la plataforma SaaS multi-tenant de 
 | UI | React 19 |
 | Lenguaje | TypeScript |
 | Estilos | Tailwind CSS 4 |
-| Imágenes | browser-image-compression |
 | Gestor de paquetes | pnpm 11.3 (Node 22 en CI) |
 
 ## Requisitos
 
 - Node.js **22** (recomendado; mínimo 18)
-- [pnpm](https://pnpm.io/) (`corepack enable` si usas Node oficial)
-- API backend en ejecución (por defecto `http://localhost:3001`)
+- [pnpm](https://pnpm.io/)
+- API backend disponible en el entorno de desarrollo acordado con el equipo
 
 ## Puesta en marcha (desarrollo)
 
@@ -37,45 +35,16 @@ Frontend [Next.js](https://nextjs.org/) para la plataforma SaaS multi-tenant de 
 git clone https://github.com/abelserradev/condominio-front.git
 cd condominio-front
 pnpm install
-# Crea .env.local según la tabla de variables (abajo)
 pnpm run dev
 ```
 
-- **Raíz plataforma (SuperAdmin / registro):** [http://localhost:3000](http://localhost:3000)
-- **Portal de un edificio en local:** [http://residencia-sofia.localhost:3000](http://residencia-sofia.localhost:3000) (slug configurable con `NEXT_PUBLIC_DEV_BUILDING_SLUG`)
+La configuración de entorno (URLs, dominios, despliegue) **no se documenta en este repositorio**. Quien colabora en el proyecto recibe los valores por canal interno.
 
-En `localhost:3000` sin subdominio, el middleware asume el slug de desarrollo (`residencia-sofia` por defecto).
-
-## Variables de entorno
-
-Crear `.env.local` en la raíz del repositorio:
-
-| Variable | Descripción | Por defecto / notas |
-|----------|-------------|---------------------|
-| `NEXT_PUBLIC_API_URL` | URL pública del backend para el navegador | `http://localhost:3001`. Si el cliente usa rutas relativas `/api`, el proxy del middleware puede bastar en server-side |
-| `NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN` | Dominio raíz en producción (sin subdominio tenant) | Ej. `buildforge.work`. En CI se usa para validar el build |
-| `NEXT_PUBLIC_DEV_BUILDING_SLUG` | Slug del edificio cuando entras por `localhost:3000` | `residencia-sofia` |
-| `API_PROXY_TARGET` | URL del backend **solo servidor** (middleware/SSR). Prioridad sobre inferencia por dominio | En Docker: `http://condominio-api:3001` |
-| `PORT` | Puerto HTTP en producción | `3000` |
-
-**Producción / Docker:** `NEXT_PUBLIC_*` se inyectan en **build time**; `API_PROXY_TARGET` en **runtime** (ver `Dockerfile`).
-
-No subas `.env.local` al repositorio.
+En local suele usarse `http://localhost:3000` y un subdominio de prueba del edificio (`*.localhost`) según indique el equipo.
 
 ## Docker
 
-```bash
-docker build -t condominio-frontend \
-  --build-arg NEXT_PUBLIC_API_URL=https://api.tu-dominio.com \
-  --build-arg NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN=tu-dominio.com \
-  .
-
-docker run -p 3000:3000 \
-  -e API_PROXY_TARGET=http://host.docker.internal:3001 \
-  condominio-frontend
-```
-
-Ajusta URLs según tu red (Coolify, compose, etc.).
+Existe `Dockerfile` para imagen de producción. Los argumentos de build y variables de runtime se gestionan en el pipeline o panel de despliegue del equipo, no en el README.
 
 ## Scripts
 
@@ -86,70 +55,31 @@ Ajusta URLs según tu red (Coolify, compose, etc.).
 | `pnpm run start` | Servir build |
 | `pnpm run lint:check` | ESLint (CI) |
 | `pnpm run typecheck` | `tsc --noEmit` |
-| `pnpm run test` | Jest (unitarios en `lib/api/__tests__`) |
+| `pnpm run test` | Tests unitarios |
 | `pnpm run lib:size` | Guardrail de tamaño del cliente API |
 
 ## Estructura del proyecto
 
 ```
 condominio-front/
-├── app/
-│   ├── page.tsx                    # Home del tenant
-│   ├── registro/                   # Alta self-service de edificio (dominio raíz)
-│   ├── reportar-pago/              # Reporte de pagos + hooks/componentes
-│   ├── recibos/                    # Consulta de recibos
-│   ├── mi-apartamento/             # Portal propietario autenticado
-│   ├── reglamentos/ | avisos/
-│   ├── admin/                      # login, inicio, recibos, pagos, propietarios, avisos, resumen, reglamentos
-│   └── super/                      # login + panel edificios (SuperAdmin)
-├── lib/
-│   ├── api.ts                      # Reexport del cliente modular
-│   ├── api/                        # auth, payments, recibos, portal, super, …
-│   └── backend-url.ts              # Resolución de proxy al backend
-├── middleware.ts                   # Subdominios, cookies de tenant, proxy /api
-├── DOCUMENTACION.md                # Guía funcional (usuarios y admins)
-└── docs/                           # Auditorías y evaluaciones de arquitectura
+├── app/              # Rutas App Router (portal, admin, super)
+├── lib/api/          # Cliente HTTP modular
+├── middleware.ts     # Enrutamiento por host / tenant
+├── DOCUMENTACION.md  # Guía funcional (usuarios y administradores)
+└── docs/             # Notas técnicas internas
 ```
 
-## Flujos principales
+## Flujos (resumen)
 
-### Tenant y API
+- **Portal:** consulta de recibos y reporte de pagos con comprobante; la administración aprueba o rechaza.
+- **Admin:** acceso autenticado al panel del edificio.
+- **SuperAdmin:** gestión de edificios desde el dominio raíz de la plataforma.
 
-1. El **host** determina si estás en modo plataforma o en un edificio (`middleware.ts`).
-2. En modo edificio se envían `x-building-slug` (y cookies) al backend.
-3. Las peticiones del navegador pueden ir a `/api/...` y el middleware las reescribe al backend (`getBackendProxyTarget()`).
-
-### Reporte de pago (público)
-
-Residente elige ubicación y meses → adjunta comprobante (compresión en cliente) → pago **pendiente** hasta que admin acepta o rechaza en el panel.
-
-### Administración
-
-Login en `/admin/login` → JWT en `localStorage` (`admin_token`) → rutas bajo `/admin/*` con CSRF en operaciones sensibles (vía `lib/api`).
-
-### SuperAdmin
-
-En el dominio raíz: `/super/login` → token `super_token` → gestión de edificios en `/super/(panel)/edificios`.
+Detalle de pantallas y pasos para usuarios finales: [DOCUMENTACION.md](./DOCUMENTACION.md).
 
 ## Calidad y CI
 
-El workflow `.github/workflows/ci.yml` ejecuta en push/PR a `main`, `develop` y ramas `desarrollo/**`:
-
-1. `pnpm run lint:check` y `typecheck`
-2. `pnpm run build`
-3. `pnpm run test` y guardrail `lib:size`
-
-Reproduce localmente antes de abrir PR:
-
-```bash
-pnpm run lint:check && pnpm run typecheck && pnpm run build && pnpm run test
-```
-
-## Documentación relacionada
-
-- [DOCUMENTACION.md](./DOCUMENTACION.md) — rutas, flujos y guía para usuarios/administradores
-- [docs/arch-eval/](./docs/arch-eval/) — ADRs y plan de migración del cliente API
-- Backend: README y `specs/` en [project-condominio](https://github.com/abelserradev/project-condominio)
+El workflow `.github/workflows/ci.yml` ejecuta lint, typecheck, build y tests en push/PR a `main`, `develop` y ramas `desarrollo/**`.
 
 ## Licencia
 
