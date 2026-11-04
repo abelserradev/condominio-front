@@ -22,6 +22,8 @@ RUN ./node_modules/.bin/next build
 FROM base AS runner
 ENV NODE_ENV=production
 ENV PORT=3000
+# Coolify healthcheck hits http://localhost:3000 — Next standalone binds HOSTNAME by default
+ENV HOSTNAME=0.0.0.0
 # URL interna del backend en la red Docker de Coolify (ej. http://nombre-servicio-api:3001)
 ENV API_PROXY_TARGET=""
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
